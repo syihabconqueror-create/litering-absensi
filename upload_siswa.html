@@ -18,7 +18,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
     import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
 
-    // Konfigurasi Firebase kamu
+    // Konfigurasi Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyDGVM5T-us2R19M-zLmVbMh-NUgjg3Af68",
       authDomain: "litering-absensi.firebaseapp.com",
@@ -33,7 +33,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // Fungsi utama upload
+    // Fungsi upload CSV
     window.uploadData = function() {
       const file = document.getElementById("fileInput").files[0];
       if (!file) {
@@ -45,11 +45,11 @@
       reader.onload = async function(e) {
         const text = e.target.result;
         const lines = text.trim().split("\n");
-        const siswaRef = ref(db, "siswa");
         let uploaded = 0;
 
         for (let i = 1; i < lines.length; i++) { // skip header
-          const [id, nama, kelas] = lines[i].split(",").map(x => x.trim());
+          let parts = lines[i].split(/[,;]+/).map(x => x.trim()); 
+          const [id, nama, kelas] = parts;
           if (id && nama && kelas) {
             await set(ref(db, `siswa/${id}`), {
               nama: nama,
