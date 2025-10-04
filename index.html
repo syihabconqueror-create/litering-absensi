@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LITERING — Absensi</title>
+  <style>
+    body { font-family: system-ui, Arial; max-width:900px; margin:20px auto; padding:12px; }
+    header { display:flex; align-items:center; gap:12px; }
+    .card { border:1px solid #ddd; padding:12px; border-radius:8px; margin-top:12px; }
+    button { padding:8px 12px; margin:6px; cursor:pointer; }
+    input, select { padding:8px; width:100%; box-sizing:border-box; margin-top:6px; }
+    #reader { width:100%; max-width:480px; margin-top:8px; }
+    .status-buttons button { min-width:110px; }
+    .notice { font-size:0.9em; color:#555; margin-top:6px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>LITERING — Absensi</h1>
+  </header>
+
+  <div class="card">
+    <h3>Scan QR Siswa</h3>
+    <div id="reader"></div>
+    <div class="notice">Jika kamera tidak tersedia, gunakan input manual di bawah.</div>
+  </div>
+
+  <div class="card">
+    <h3>Data Siswa</h3>
+    <label>Nama</label>
+    <input id="inputName" placeholder="Nama siswa (otomatis jika scan QR)" />
+    <label>Kelas</label>
+    <input id="inputKelas" placeholder="Kelas (otomatis jika scan QR)" />
+    <div style="margin-top:8px;">
+      <label>Pilih Status</label>
+      <div class="status-buttons">
+        <button data-status="Hadir">Hadir</button>
+        <button data-status="Izin">Izin</button>
+        <button data-status="Sakit">Sakit</button>
+        <button data-status="Alfa">Alfa</button>
+      </div>
+    </div>
+    <div style="margin-top:8px;">
+      <button id="btnSubmit">Kirim Absensi</button>
+      <button id="btnClear" style="background:#eee">Kosongkan</button>
+    </div>
+    <div id="message" class="notice"></div>
+  </div>
+
+  <div class="card">
+    <h3>Petunjuk QR</h3>
+    <ol>
+      <li>QR yang didukung: <b>JSON</b> seperti <code>{"name":"Budi","kelas":"XI-A"}</code> <em>atau</em> pipe-separated: <code>Budi|XI-A</code>.</li>
+      <li>Jika tidak pakai QR, isi manual Nama & Kelas lalu pilih status.</li>
+      <li>Pastikan koneksi internet aktif.</li>
+    </ol>
+  </div>
+
+  <!-- Dependencies -->
+  <script type="module">
+    import { Html5Qrcode } from "https://unpkg.com/html5-qrcode@2.3.7/minified/html5-qrcode.min.js";
+    import { saveAttendance } from "./firebase.js";
+
+    // UI refs
+    const readerElemId = "reader";
+    const inputName = document.getElementById('inputName');
+    const inputKelas = document.getElementById('inputKelas');
+    const btnSubmit = document.getElementById('btnSubmit');
+    const btnClear = document.getElementById('btnClear');
+    const message = document.getElementById('message');
+    let selectedStatus = 'Hadir';
+
+    // status buttons
+    document.querySelectorAll('.status-buttons button').forEach(btn=>{
+      btn.addEventListener('click', ()=> {
+        selectedStatus = btn.dataset.status;
+        document.querySelectorAll('.status-buttons button').forEach(b=> b.style.background='');
+        btn.style.background = '#d0f0d0';
+      });
+      if (btn.dataset.status === 'Hadir') btn.style.background = '#d0f0d0';
+    });
+
+    // QR scanner setup
+    const html5QrcodeScanner = new Html5Qrcode(readerElemId);
+    function startScanner() {
+      Html5Qrcode.getCameras().then(devices => {
+        if (devices && devices.length) {
+          const cameraId = devices[0].id;
+          html5QrcodeScanner.start(
+            cameraId,
+            { fps: 10, qrbox: 250 },
+            qrCodeMessage => { handleScanned(qrCodeMessage); },
+            errorMessage => { /* ignore */ }
+          ).catch(err => {
+            console.warn("Scanner start failed:", err);
+            message.innerText = "Tidak dapat mengakses kamera. Gunakan input manual.";
+          });
+        } else {
+          message.innerText = "Tidak ditemukan kamera. Gunakan input manual.";
+        }
+      }).catch(err=>{
+        console.warn(err);
+        message.innerText = "Gagal mengambil kamera. Gunakan input manual.";
+      });
+    }
+
+    function handleScanned(text) {
+      // Accept JSON {"name":"..","kelas":".."} OR pipe "Name|Kelas" OR "Name"
+      try {
+        const maybeJson = JSON.parse(text);
+        if (maybeJson.name) inputName.value = maybeJson.name;
+        if (maybeJson.kelas) inputKelas.value = maybeJson.kelas;
+      } catch (e) {
+        // not JSON; try pipe
+        if (text.includes('|')) {
+          const parts = text.split('|').map(s=>s.trim());
+          inputName.value = parts[0] || inputName.value;
+          inputKelas.value = parts[1] || inputKelas.value;
+        } else {
+          // just raw name
+          inputName.value = text.trim();
+        }
+      }
+      flashMessage("QR terbaca. Periksa data lalu tekan 'Kirim Absensi'.");
+      // Optionally stop scanner for privacy
+      // html5QrcodeScanner.stop();
+    }
+
+    function flashMessage(msg, timeout=3500) {
+      message.innerText = msg;
+      setTimeout(()=>{ if (message.innerText === msg) message.innerText = ''; }, timeout);
+    }
+
+    // submit handler
+    btnSubmit.addEventListener('click', async ()=>{
+      const name = inputName.value.trim();
+      const kelas = inputKelas.value.trim();
+      if (!name || !kelas) {
+        flashMessage("Isi Nama dan Kelas terlebih dahulu.", 4000);
+        return;
+      }
+      const ts = new Date();
+      const record = {
+        name,
+        kelas,
+        status: selectedStatus,
+        timestampISO: ts.toISOString(),
+        timestampUtcMs: ts.getTime(),
+        // keep a small audit field: where from (web)
+        source: 'web-index'
+      };
+      try {
+        await saveAttendance(record);
+        flashMessage("Absensi tersimpan. Terima kasih 😊", 4000);
+        // clear input for next student (optional)
+        inputName.value = '';
+        inputKelas.value = '';
+      } catch (err) {
+        console.error(err);
+        flashMessage("Gagal menyimpan. Cek koneksi atau konfigurasi Firebase.", 5000);
+      }
+    });
+
+    btnClear.addEventListener('click', ()=> {
+      inputName.value = '';
+      inputKelas.value = '';
+      flashMessage('Form dikosongkan', 1500);
+    });
+
+    // auto start scanner
+    startScanner();
+  </script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LITERING — Admin Rekap Absensi</title>
+  <style>
+    body { font-family: system-ui, Arial; max-width:1100px; margin:20px auto; padding:12px; }
+    .controls{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    input, select { padding:8px; }
+    table{ width:100%; border-collapse:collapse; margin-top:12px; }
+    th, td{ border:1px solid #ddd; padding:8px; text-align:left; }
+    .card{ border:1px solid #ddd; padding:12px; border-radius:8px; margin-top:12px; }
+    button{ padding:8px 12px; }
+  </style>
+</head>
+<body>
+  <h1>LITERING — Admin: Rekap Absensi</h1>
+
+  <div class="card">
+    <div class="controls">
+      <label for="datePick">Tanggal</label>
+      <input type="date" id="datePick" />
+      <label for="filterKelas">Filter Kelas</label>
+      <input id="filterKelas" placeholder="kosong = semua" />
+      <button id="btnLoad">Load</button>
+      <button id="btnExport">Export CSV</button>
+      <span id="status" style="margin-left:12px;color:#555"></span>
+    </div>
+  </div>
+
+  <div id="tableWrap" class="card">
+    <table id="tbl">
+      <thead><tr><th>#</th><th>Waktu</th><th>Nama</th><th>Kelas</th><th>Status</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script type="module">
+    import { listenAttendanceByDate, readAllAttendance } from './firebase.js';
+
+    const datePick = document.getElementById('datePick');
+    const filterKelas = document.getElementById('filterKelas');
+    const btnLoad = document.getElementById('btnLoad');
+    const btnExport = document.getElementById('btnExport');
+    const status = document.getElementById('status');
+    const tbody = document.querySelector('#tbl tbody');
+
+    // set default date = today
+    const today = new Date().toISOString().slice(0,10);
+    datePick.value = today;
+
+    let currentData = {}; // holds object from DB for current date
+
+    btnLoad.addEventListener('click', ()=> loadFor(datePick.value));
+
+    function formatTime(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      return d.toLocaleString('id-ID', { hour12:false });
+    }
+
+    function renderTableFor(dataObj) {
+      // dataObj: { key1: record, key2: record}
+      currentData = dataObj || {};
+      tbody.innerHTML = '';
+      const rows = Object.entries(currentData).map(([k,rec]) => ({ key:k, rec }));
+      // optional sort by timestamp
+      rows.sort((a,b)=> (a.rec.timestampUtcMs || 0) - (b.rec.timestampUtcMs || 0));
+      const kelasFilter = filterKelas.value.trim().toLowerCase();
+      let index = 0;
+      for (const row of rows) {
+        const r = row.rec;
+        if (kelasFilter && (!r.kelas || r.kelas.toLowerCase().indexOf(kelasFilter)===-1)) continue;
+        index++;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${index}</td>
+                        <td>${formatTime(r.timestampISO)}</td>
+                        <td>${escapeHtml(r.name)}</td>
+                        <td>${escapeHtml(r.kelas)}</td>
+                        <td>${escapeHtml(r.status)}</td>`;
+        tbody.appendChild(tr);
+      }
+      status.innerText = `Menampilkan ${index} baris.`;
+    }
+
+    // load for specific date using listener (live updates)
+    function loadFor(dateKey) {
+      status.innerText = 'Memuat...';
+      listenAttendanceByDate(dateKey, (val)=>{
+        renderTableFor(val);
+      });
+    }
+
+    // export CSV from currentData + class filter
+    btnExport.addEventListener('click', ()=>{
+      const kelasFilter = filterKelas.value.trim().toLowerCase();
+      const rows = [];
+      for (const [k,r] of Object.entries(currentData)) {
+        if (kelasFilter && (!r.kelas || r.kelas.toLowerCase().indexOf(kelasFilter)===-1)) continue;
+        rows.push([r.timestampISO || '', r.name || '', r.kelas||'', r.status||'']);
+      }
+      if (rows.length===0) { alert('Tidak ada data untuk diexport.'); return; }
+      // header + rows
+      const csv = [['Waktu','Nama','Kelas','Status'], ...rows].map(r => r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `absensi_${datePick.value || 'all'}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    function escapeHtml(s='') { return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+
+    // initial load for today
+    loadFor(datePick.value);
+  </script>
+</body>
+</html>
