@@ -1,175 +1,119 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LITERING — Absensi</title>
   <style>
-    body { font-family: system-ui, Arial; max-width:900px; margin:20px auto; padding:12px; }
-    header { display:flex; align-items:center; gap:12px; }
-    .card { border:1px solid #ddd; padding:12px; border-radius:8px; margin-top:12px; }
-    button { padding:8px 12px; margin:6px; cursor:pointer; }
-    input, select { padding:8px; width:100%; box-sizing:border-box; margin-top:6px; }
-    #reader { width:100%; max-width:480px; margin-top:8px; }
-    .status-buttons button { min-width:110px; }
-    .notice { font-size:0.9em; color:#555; margin-top:6px; }
+    body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
+    h1 { color: #222; }
+    .card { border: 1px solid #ccc; border-radius: 10px; padding: 20px; margin: 20px auto; width: 90%; max-width: 500px; }
+    input, button { margin: 5px; padding: 10px; width: 90%; max-width: 400px; }
+    button { cursor: pointer; }
+    .status-btn { width: auto; padding: 10px 20px; margin: 5px; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>LITERING — Absensi</h1>
-  </header>
+  <h1>LITERING — Absensi</h1>
 
+  <!-- Bagian Scan QR -->
   <div class="card">
-    <h3>Scan QR Siswa</h3>
-    <div id="reader"></div>
-    <div class="notice">Jika kamera tidak tersedia, gunakan input manual di bawah.</div>
+    <h2>Scan QR Siswa</h2>
+    <p>Scan QR menggunakan kamera HP atau laptop. Jika tidak ada kamera, gunakan input manual di bawah.</p>
+    <div id="reader" style="width: 300px; margin: 20px auto;"></div>
   </div>
 
+  <!-- Form Absensi -->
   <div class="card">
-    <h3>Data Siswa</h3>
-    <label>Nama</label>
-    <input id="inputName" placeholder="Nama siswa (otomatis jika scan QR)" />
-    <label>Kelas</label>
-    <input id="inputKelas" placeholder="Kelas (otomatis jika scan QR)" />
-    <div style="margin-top:8px;">
-      <label>Pilih Status</label>
-      <div class="status-buttons">
-        <button data-status="Hadir">Hadir</button>
-        <button data-status="Izin">Izin</button>
-        <button data-status="Sakit">Sakit</button>
-        <button data-status="Alfa">Alfa</button>
-      </div>
-    </div>
-    <div style="margin-top:8px;">
-      <button id="btnSubmit">Kirim Absensi</button>
-      <button id="btnClear" style="background:#eee">Kosongkan</button>
-    </div>
-    <div id="message" class="notice"></div>
+    <h2>Data Siswa</h2>
+    <input type="text" id="nama" placeholder="Nama siswa (otomatis jika scan QR)">
+    <input type="text" id="kelas" placeholder="Kelas (otomatis jika scan QR)">
+
+    <h3>Pilih Status</h3>
+    <button class="status-btn" onclick="setStatus('Hadir')">Hadir</button>
+    <button class="status-btn" onclick="setStatus('Izin')">Izin</button>
+    <button class="status-btn" onclick="setStatus('Sakit')">Sakit</button>
+    <button class="status-btn" onclick="setStatus('Alfa')">Alfa</button>
+
+    <br>
+    <button onclick="kirimAbsensi()">Kirim Absensi</button>
+    <button onclick="kosongkanForm()">Kosongkan</button>
   </div>
 
-  <div class="card">
-    <h3>Petunjuk QR</h3>
-    <ol>
-      <li>QR yang didukung: <b>JSON</b> seperti <code>{"name":"Budi","kelas":"XI-A"}</code> <em>atau</em> pipe-separated: <code>Budi|XI-A</code>.</li>
-      <li>Jika tidak pakai QR, isi manual Nama & Kelas lalu pilih status.</li>
-      <li>Pastikan koneksi internet aktif.</li>
-    </ol>
-  </div>
-
-  <!-- Dependencies -->
+  <!-- Firebase SDK -->
   <script type="module">
-    import { Html5Qrcode } from "https://unpkg.com/html5-qrcode@2.3.7/minified/html5-qrcode.min.js";
-    import { saveAttendance } from "./firebase.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+    import { getDatabase, ref, push, set } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
 
-    // UI refs
-    const readerElemId = "reader";
-    const inputName = document.getElementById('inputName');
-    const inputKelas = document.getElementById('inputKelas');
-    const btnSubmit = document.getElementById('btnSubmit');
-    const btnClear = document.getElementById('btnClear');
-    const message = document.getElementById('message');
-    let selectedStatus = 'Hadir';
+    const firebaseConfig = {
+      apiKey: "AIzaSyDGVM5T-us2R19M-zLmVbMh-NUgjg3Af68",
+      authDomain: "litering-absensi.firebaseapp.com",
+      databaseURL: "https://litering-absensi-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "litering-absensi",
+      storageBucket: "litering-absensi.firebasestorage.app",
+      messagingSenderId: "529191002867",
+      appId: "1:529191002867:web:d751dddb59e230f08acd86",
+      measurementId: "G-VGRF516G18"
+    };
 
-    // status buttons
-    document.querySelectorAll('.status-buttons button').forEach(btn=>{
-      btn.addEventListener('click', ()=> {
-        selectedStatus = btn.dataset.status;
-        document.querySelectorAll('.status-buttons button').forEach(b=> b.style.background='');
-        btn.style.background = '#d0f0d0';
-      });
-      if (btn.dataset.status === 'Hadir') btn.style.background = '#d0f0d0';
-    });
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-    // QR scanner setup
-    const html5QrcodeScanner = new Html5Qrcode(readerElemId);
-    function startScanner() {
-      Html5Qrcode.getCameras().then(devices => {
-        if (devices && devices.length) {
-          const cameraId = devices[0].id;
-          html5QrcodeScanner.start(
-            cameraId,
-            { fps: 10, qrbox: 250 },
-            qrCodeMessage => { handleScanned(qrCodeMessage); },
-            errorMessage => { /* ignore */ }
-          ).catch(err => {
-            console.warn("Scanner start failed:", err);
-            message.innerText = "Tidak dapat mengakses kamera. Gunakan input manual.";
-          });
-        } else {
-          message.innerText = "Tidak ditemukan kamera. Gunakan input manual.";
-        }
-      }).catch(err=>{
-        console.warn(err);
-        message.innerText = "Gagal mengambil kamera. Gunakan input manual.";
-      });
-    }
+    let statusDipilih = "";
 
-    function handleScanned(text) {
-      // Accept JSON {"name":"..","kelas":".."} OR pipe "Name|Kelas" OR "Name"
-      try {
-        const maybeJson = JSON.parse(text);
-        if (maybeJson.name) inputName.value = maybeJson.name;
-        if (maybeJson.kelas) inputKelas.value = maybeJson.kelas;
-      } catch (e) {
-        // not JSON; try pipe
-        if (text.includes('|')) {
-          const parts = text.split('|').map(s=>s.trim());
-          inputName.value = parts[0] || inputName.value;
-          inputKelas.value = parts[1] || inputKelas.value;
-        } else {
-          // just raw name
-          inputName.value = text.trim();
-        }
-      }
-      flashMessage("QR terbaca. Periksa data lalu tekan 'Kirim Absensi'.");
-      // Optionally stop scanner for privacy
-      // html5QrcodeScanner.stop();
-    }
+    window.setStatus = function(status) {
+      statusDipilih = status;
+      alert("Status dipilih: " + status);
+    };
 
-    function flashMessage(msg, timeout=3500) {
-      message.innerText = msg;
-      setTimeout(()=>{ if (message.innerText === msg) message.innerText = ''; }, timeout);
-    }
+    window.kirimAbsensi = function() {
+      const nama = document.getElementById("nama").value;
+      const kelas = document.getElementById("kelas").value;
 
-    // submit handler
-    btnSubmit.addEventListener('click', async ()=>{
-      const name = inputName.value.trim();
-      const kelas = inputKelas.value.trim();
-      if (!name || !kelas) {
-        flashMessage("Isi Nama dan Kelas terlebih dahulu.", 4000);
+      if (!nama || !kelas || !statusDipilih) {
+        alert("Lengkapi data dulu!");
         return;
       }
-      const ts = new Date();
-      const record = {
-        name,
-        kelas,
-        status: selectedStatus,
-        timestampISO: ts.toISOString(),
-        timestampUtcMs: ts.getTime(),
-        // keep a small audit field: where from (web)
-        source: 'web-index'
-      };
-      try {
-        await saveAttendance(record);
-        flashMessage("Absensi tersimpan. Terima kasih 😊", 4000);
-        // clear input for next student (optional)
-        inputName.value = '';
-        inputKelas.value = '';
-      } catch (err) {
-        console.error(err);
-        flashMessage("Gagal menyimpan. Cek koneksi atau konfigurasi Firebase.", 5000);
-      }
-    });
 
-    btnClear.addEventListener('click', ()=> {
-      inputName.value = '';
-      inputKelas.value = '';
-      flashMessage('Form dikosongkan', 1500);
-    });
+      const absensiRef = ref(db, "absensi");
+      const newAbsen = push(absensiRef);
 
-    // auto start scanner
-    startScanner();
+      set(newAbsen, {
+        nama: nama,
+        kelas: kelas,
+        status: statusDipilih,
+        waktu: new Date().toLocaleString("id-ID")
+      });
+
+      alert("Absensi berhasil dikirim!");
+      kosongkanForm();
+    };
+
+    window.kosongkanForm = function() {
+      document.getElementById("nama").value = "";
+      document.getElementById("kelas").value = "";
+      statusDipilih = "";
+    };
+  </script>
+
+  <!-- QR Scanner -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script>
+    function onScanSuccess(decodedText, decodedResult) {
+      const [nama, kelas] = decodedText.split("|");
+      document.getElementById("nama").value = nama;
+      document.getElementById("kelas").value = kelas;
+      alert(`Scan berhasil: ${nama} (${kelas})`);
+    }
+
+    const html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: 250 },
+      onScanSuccess
+    ).catch(err => {
+      console.error("Kamera error:", err);
+    });
   </script>
 </body>
 </html>
