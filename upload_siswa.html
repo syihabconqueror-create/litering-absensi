@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload Data Siswa ke Firebase</title>
+</head>
+<body style="font-family:Arial;text-align:center;margin:20px">
+  <h1>📤 Upload Data Siswa ke Firebase</h1>
+  <p>Pilih file CSV (format: ID, Nama, Kelas)</p>
+
+  <input type="file" id="fileInput" accept=".csv"><br><br>
+  <button onclick="uploadData()">Upload ke Firebase</button>
+
+  <pre id="output"></pre>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+    import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
+
+    // Konfigurasi Firebase kamu
+    const firebaseConfig = {
+      apiKey: "AIzaSyDGVM5T-us2R19M-zLmVbMh-NUgjg3Af68",
+      authDomain: "litering-absensi.firebaseapp.com",
+      databaseURL: "https://litering-absensi-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "litering-absensi",
+      storageBucket: "litering-absensi.firebasestorage.app",
+      messagingSenderId: "529191002867",
+      appId: "1:529191002867:web:d751dddb59e230f08acd86",
+      measurementId: "G-VGRF516G18"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // Fungsi utama upload
+    window.uploadData = function() {
+      const file = document.getElementById("fileInput").files[0];
+      if (!file) {
+        alert("Pilih file CSV dulu!");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        const text = e.target.result;
+        const lines = text.trim().split("\n");
+        const siswaRef = ref(db, "siswa");
+        let uploaded = 0;
+
+        for (let i = 1; i < lines.length; i++) { // skip header
+          const [id, nama, kelas] = lines[i].split(",").map(x => x.trim());
+          if (id && nama && kelas) {
+            await set(ref(db, `siswa/${id}`), {
+              nama: nama,
+              kelas: kelas
+            });
+            uploaded++;
+          }
+        }
+
+        document.getElementById("output").innerText = `✅ Berhasil upload ${uploaded} siswa ke Firebase!`;
+      };
+      reader.readAsText(file);
+    };
+  </script>
+</body>
+</html>
