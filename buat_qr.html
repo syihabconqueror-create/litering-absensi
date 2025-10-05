@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buat QR Siswa - LITERING</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; text-align: center; }
+    h1 { color: #2c3e50; }
+    #listQR { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin-top: 30px; }
+    .qr-card { border: 1px solid #ccc; border-radius: 10px; padding: 10px; width: 180px; text-align: center; }
+    canvas { margin-top: 10px; }
+    button { margin: 10px; padding: 10px 15px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>📱 Buat QR Code Siswa</h1>
+  <p>Generate QR berisi <strong>ID | Nama</strong> dari data Firebase.</p>
+  <button onclick="generateAllQR()">🔄 Buat QR Semua Siswa</button>
+  <div id="listQR"></div>
+
+  <!-- Firebase & QR Code library -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+    import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDGVM5T-us2R19M-zLmVbMh-NUgjg3Af68",
+      authDomain: "litering-absensi.firebaseapp.com",
+      databaseURL: "https://litering-absensi-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "litering-absensi",
+      storageBucket: "litering-absensi.firebasestorage.app",
+      messagingSenderId: "529191002867",
+      appId: "1:529191002867:web:d751dddb59e230f08acd86",
+      measurementId: "G-VGRF516G18"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    window.generateAllQR = async function () {
+      const siswaRef = ref(db, "siswa");
+      const snapshot = await get(siswaRef);
+      const container = document.getElementById("listQR");
+      container.innerHTML = "";
+
+      if (!snapshot.exists()) {
+        container.innerHTML = "<p>❌ Belum ada data siswa.</p>";
+        return;
+      }
+
+      const data = snapshot.val();
+      for (const id in data) {
+        const siswa = data[id];
+        const qrText = `${siswa.id}|${siswa.nama}`;
+        const div = document.createElement("div");
+        div.className = "qr-card";
+        div.innerHTML = `
+          <strong>${siswa.nama}</strong><br>
+          <small>${siswa.id}</small><br>
+          <canvas id="qr-${id}"></canvas>
+        `;
+        container.appendChild(div);
+
+        const canvas = div.querySelector("canvas");
+        new QRious({
+          element: canvas,
+          value: qrText,
+          size: 150,
+        });
+      }
+    };
+  </script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+</body>
+</html>
