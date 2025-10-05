@@ -162,7 +162,7 @@
           const s = child.val();
           const row = `
             <tr>
-              <td>${s.id || '-'}</td>
+              <td>${s.id || child.key}</td>
               <td>${s.nama || '-'}</td>
               <td>${s.kelas || '-'}</td>
               <td>${s.status || '-'}</td>
@@ -178,6 +178,7 @@
 
 </body>
 </html>
+
 
 
 
