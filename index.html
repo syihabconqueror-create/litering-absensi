@@ -11,7 +11,17 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
-    body { font-family: 'Segoe UI', sans-serif; background-color: #f8fafc; margin: 0; }
+    body
+    <link rel="stylesheet" href="style.css">
+
+<div id="navbar"></div>
+<script>
+  fetch("navbar.html")
+    .then(res => res.text())
+    .then(html => document.getElementById("navbar").innerHTML = html);
+</script>
+
+    { font-family: 'Segoe UI', sans-serif; background-color: #f8fafc; margin: 0; }
     header { background: #1e3a8a; color: white; text-align: center; padding: 15px; }
     nav { background: #2563eb; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; padding: 10px; }
     nav a { background: white; color: #2563eb; text-decoration: none; padding: 8px 14px; border-radius: 6px; font-weight: 500; }
@@ -212,3 +222,4 @@
   </script>
 </body>
 </html>
+
