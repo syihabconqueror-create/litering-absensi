@@ -1,50 +1,94 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LITERING — Absensi</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LITERING — Absensi & Dashboard</title>
+
+  <!-- Firebase & Chart.js -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
-    h1 { color: #222; }
-    .card { border: 1px solid #ccc; border-radius: 10px; padding: 20px; margin: 20px auto; width: 90%; max-width: 500px; }
+    body { font-family: 'Segoe UI', sans-serif; background-color: #f8fafc; margin: 0; }
+    header { background: #1e3a8a; color: white; text-align: center; padding: 15px; }
+    nav { background: #2563eb; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; padding: 10px; }
+    nav a { background: white; color: #2563eb; text-decoration: none; padding: 8px 14px; border-radius: 6px; font-weight: 500; }
+    nav a:hover { background: #e0e7ff; }
+
+    main { padding: 20px; max-width: 1000px; margin: auto; }
+
+    /* --- DASHBOARD --- */
+    .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; }
+    .card { background: white; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); padding: 15px; text-align: center; }
+    .hadir { color: #16a34a; } .izin { color: #eab308; } .sakit { color: #2563eb; } .alfa { color: #dc2626; }
+    canvas { background: white; border-radius: 10px; margin-top: 25px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+
+    /* --- ABSENSI --- */
+    .absensi-section { margin-top: 40px; }
+    .form-card { border: 1px solid #ccc; border-radius: 10px; padding: 20px; margin: 20px auto; width: 90%; max-width: 500px; background: white; }
     input, button { margin: 5px; padding: 10px; width: 90%; max-width: 400px; }
-    button { cursor: pointer; }
-    .status-btn { width: auto; padding: 10px 20px; margin: 5px; }
+    button { cursor: pointer; border: none; border-radius: 6px; background: #2563eb; color: white; }
+    .status-btn { width: auto; padding: 10px 20px; margin: 5px; background: #e0e7ff; color: #2563eb; }
+    .status-btn:hover { background: #c7d2fe; }
   </style>
 </head>
 <body>
-  <h1>LITERING — Absensi</h1>
+  <header>
+    <h1>LITERING — Absensi & Dashboard</h1>
+    <p>Les Komputer MTs Al Ishlah Panambangan</p>
+  </header>
 
-  <!-- Bagian Scan QR -->
-  <div class="card">
-    <h2>Scan QR Siswa</h2>
-    <p>Scan QR menggunakan kamera HP atau laptop. Jika tidak ada kamera, gunakan input manual di bawah.</p>
-    <div id="reader" style="width: 300px; margin: 20px auto;"></div>
-  </div>
+  <nav>
+    <a href="index.html">🏠 Dashboard</a>
+    <a href="upload_siswa.html">📤 Upload Siswa</a>
+    <a href="kelola_siswa.html">🧾 Kelola Siswa</a>
+    <a href="admin.html">📊 Rekap Absensi</a>
+    <a href="scan.html">📱 Scan QR</a>
+  </nav>
 
-  <!-- Form Absensi -->
-  <div class="card">
-    <h2>Data Siswa</h2>
-    <input type="text" id="nama" placeholder="Nama siswa (otomatis jika scan QR)">
-    <input type="text" id="kelas" placeholder="Kelas (otomatis jika scan QR)">
+  <main>
+    <!-- DASHBOARD -->
+    <section id="dashboard">
+      <h2>Rekap Kehadiran Hari Ini (<span id="tanggalHariIni"></span>)</h2>
 
-    <h3>Pilih Status</h3>
-    <button class="status-btn" onclick="setStatus('Hadir')">Hadir</button>
-    <button class="status-btn" onclick="setStatus('Izin')">Izin</button>
-    <button class="status-btn" onclick="setStatus('Sakit')">Sakit</button>
-    <button class="status-btn" onclick="setStatus('Alfa')">Alfa</button>
+      <div class="summary">
+        <div class="card"><h3>Hadir</h3><h2 id="hadirCount" class="hadir">0</h2></div>
+        <div class="card"><h3>Izin</h3><h2 id="izinCount" class="izin">0</h2></div>
+        <div class="card"><h3>Sakit</h3><h2 id="sakitCount" class="sakit">0</h2></div>
+        <div class="card"><h3>Alfa</h3><h2 id="alfaCount" class="alfa">0</h2></div>
+      </div>
 
-    <br>
-    <button onclick="kirimAbsensi()">Kirim Absensi</button>
-    <button onclick="kosongkanForm()">Kosongkan</button>
-  </div>
+      <button id="btnDownload">⬇️ Download Rekap (CSV)</button>
+      <canvas id="chartKehadiran" height="100"></canvas>
+    </section>
 
-  <!-- Firebase SDK -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
-    import { getDatabase, ref, push, set } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
+    <!-- FORM ABSENSI -->
+    <section class="absensi-section">
+      <h2>Form Absensi Manual / QR</h2>
+      <div class="form-card">
+        <h3>Scan QR Siswa</h3>
+        <p>Scan QR menggunakan kamera HP/laptop atau isi manual di bawah:</p>
+        <div id="reader" style="width: 300px; margin: 20px auto;"></div>
 
+        <input type="text" id="nama" placeholder="Nama siswa (otomatis jika scan QR)">
+        <input type="text" id="kelas" placeholder="Kelas (otomatis jika scan QR)">
+
+        <h4>Pilih Status</h4>
+        <button class="status-btn" onclick="setStatus('Hadir')">Hadir</button>
+        <button class="status-btn" onclick="setStatus('Izin')">Izin</button>
+        <button class="status-btn" onclick="setStatus('Sakit')">Sakit</button>
+        <button class="status-btn" onclick="setStatus('Alfa')">Alfa</button>
+        <br>
+        <button onclick="kirimAbsensi()">Kirim Absensi</button>
+        <button onclick="kosongkanForm()">Kosongkan</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Firebase Script -->
+  <script>
     const firebaseConfig = {
       apiKey: "AIzaSyDGVM5T-us2R19M-zLmVbMh-NUgjg3Af68",
       authDomain: "litering-absensi.firebaseapp.com",
@@ -55,51 +99,107 @@
       appId: "1:529191002867:web:d751dddb59e230f08acd86",
       measurementId: "G-VGRF516G18"
     };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+    const tgl = new Date();
+    const today = `${tgl.getDate().toString().padStart(2,"0")}-${(tgl.getMonth()+1).toString().padStart(2,"0")}-${tgl.getFullYear()}`;
+    document.getElementById("tanggalHariIni").textContent = today;
 
+    const counts = { hadir: 0, izin: 0, sakit: 0, alfa: 0 };
+    const ctx = document.getElementById("chartKehadiran").getContext("2d");
+    let chart;
     let statusDipilih = "";
 
-    window.setStatus = function(status) {
+    function renderChart() {
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: "doughnut",
+        data: {
+          labels: ["Hadir", "Izin", "Sakit", "Alfa"],
+          datasets: [{
+            data: [counts.hadir, counts.izin, counts.sakit, counts.alfa],
+            backgroundColor: ["#16a34a", "#eab308", "#2563eb", "#dc2626"]
+          }]
+        },
+        options: { plugins: { legend: { position: "bottom" } } }
+      });
+    }
+
+    function loadData() {
+      db.ref("absensi").once("value", snapshot => {
+        Object.keys(counts).forEach(k => counts[k] = 0);
+        snapshot.forEach(item => {
+          const data = item.val();
+          if (!data.tanggal) return;
+          if (data.tanggal === today && counts[data.status.toLowerCase()]) {
+            counts[data.status.toLowerCase()]++;
+          }
+        });
+        document.getElementById("hadirCount").textContent = counts.hadir;
+        document.getElementById("izinCount").textContent = counts.izin;
+        document.getElementById("sakitCount").textContent = counts.sakit;
+        document.getElementById("alfaCount").textContent = counts.alfa;
+        renderChart();
+      });
+    }
+
+    document.getElementById("btnDownload").addEventListener("click", () => {
+      db.ref("absensi").once("value", snapshot => {
+        let csv = "Nama,Kelas,Tanggal,Status,Waktu\n";
+        snapshot.forEach(item => {
+          const d = item.val();
+          csv += `${d.nama || "-"},${d.kelas || "-"},${d.tanggal || "-"},${d.status || "-"},${d.waktu || "-"}\n`;
+        });
+        const blob = new Blob([csv], { type: "text/csv" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `rekap_absensi_${today}.csv`;
+        a.click();
+      });
+    });
+
+    // --- Form Absensi ---
+    function setStatus(status) {
       statusDipilih = status;
       alert("Status dipilih: " + status);
-    };
+    }
 
-    window.kirimAbsensi = function() {
-      const nama = document.getElementById("nama").value;
-      const kelas = document.getElementById("kelas").value;
+    function kirimAbsensi() {
+      const nama = document.getElementById("nama").value.trim();
+      const kelas = document.getElementById("kelas").value.trim();
 
       if (!nama || !kelas || !statusDipilih) {
         alert("Lengkapi data dulu!");
         return;
       }
 
-      const absensiRef = ref(db, "absensi");
-      const newAbsen = push(absensiRef);
-
-      set(newAbsen, {
-        nama: nama,
-        kelas: kelas,
+      const absensiRef = db.ref("absensi").push();
+      absensiRef.set({
+        nama, kelas,
         status: statusDipilih,
+        tanggal: today,
         waktu: new Date().toLocaleString("id-ID")
       });
 
       alert("Absensi berhasil dikirim!");
       kosongkanForm();
-    };
+      loadData();
+    }
 
-    window.kosongkanForm = function() {
+    function kosongkanForm() {
       document.getElementById("nama").value = "";
       document.getElementById("kelas").value = "";
       statusDipilih = "";
-    };
+    }
+
+    window.onload = loadData;
   </script>
 
   <!-- QR Scanner -->
   <script src="https://unpkg.com/html5-qrcode"></script>
   <script>
-    function onScanSuccess(decodedText, decodedResult) {
+    function onScanSuccess(decodedText) {
       const [nama, kelas] = decodedText.split("|");
       document.getElementById("nama").value = nama;
       document.getElementById("kelas").value = kelas;
@@ -107,13 +207,8 @@
     }
 
     const html5QrCode = new Html5Qrcode("reader");
-    html5QrCode.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: 250 },
-      onScanSuccess
-    ).catch(err => {
-      console.error("Kamera error:", err);
-    });
+    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, onScanSuccess)
+      .catch(err => console.error("Kamera error:", err));
   </script>
 </body>
 </html>
