@@ -122,7 +122,7 @@
       </tr>
     </thead>
     <tbody id="siswaTable">
-      <tr><td colspan="4" style="text-align:center;">Memuat data...</td></tr>
+      <tr><td colspan="12" style="text-align:center;">Memuat data...</td></tr>
     </tbody>
   </table>
 
@@ -149,12 +149,12 @@
     // 🔍 Fungsi untuk ambil data siswa dari Firebase
     function loadData() {
       const tbody = document.getElementById("siswaTable");
-      tbody.innerHTML = "<tr><td colspan='4' style='text-align:center;'>Memuat data...</td></tr>";
+      tbody.innerHTML = "<tr><td colspan='12' style='text-align:center;'>Memuat data...</td></tr>";
 
       db.ref("siswa").once("value").then(snapshot => {
         tbody.innerHTML = "";
         if (!snapshot.exists()) {
-          tbody.innerHTML = "<tr><td colspan='4' style='text-align:center;'>Belum ada data siswa.</td></tr>";
+          tbody.innerHTML = "<tr><td colspan='12' style='text-align:center;'>Belum ada data siswa.</td></tr>";
           return;
         }
 
@@ -178,6 +178,7 @@
 
 </body>
 </html>
+
 
 
 
