@@ -5,8 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LITERING — Absensi & Dashboard</title>
 
-  <!-- Style dan Library -->
-  <link rel="stylesheet" href="style.css">
+  <!-- STYLE -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Firebase & Chart.js -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -18,24 +20,34 @@
       margin: 0;
     }
 
+    header {
+      background: #1e3a8a;
+      color: white;
+      text-align: center;
+      padding: 15px;
+    }
+
     main {
       padding: 20px;
       max-width: 1000px;
       margin: auto;
     }
 
+    /* --- DASHBOARD --- */
     .summary {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 15px;
     }
+
     .card {
       background: white;
       border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
       padding: 15px;
       text-align: center;
     }
+
     .hadir { color: #16a34a; }
     .izin { color: #eab308; }
     .sakit { color: #2563eb; }
@@ -46,9 +58,10 @@
       border-radius: 10px;
       margin-top: 25px;
       padding: 10px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
 
+    /* --- ABSENSI --- */
     .absensi-section { margin-top: 40px; }
     .form-card {
       border: 1px solid #ccc;
@@ -59,12 +72,14 @@
       max-width: 500px;
       background: white;
     }
+
     input, button {
       margin: 5px;
       padding: 10px;
       width: 90%;
       max-width: 400px;
     }
+
     button {
       cursor: pointer;
       border: none;
@@ -72,6 +87,7 @@
       background: #2563eb;
       color: white;
     }
+
     .status-btn {
       width: auto;
       padding: 10px 20px;
@@ -79,12 +95,14 @@
       background: #e0e7ff;
       color: #2563eb;
     }
+
     .status-btn:hover { background: #c7d2fe; }
   </style>
 </head>
 
 <body>
-  <!-- 🔹 Ini tempat navbar.html akan dimasukkan -->
+
+  <!-- 🔹 NAVBAR (otomatis dari file navbar.html) -->
   <div id="navbar"></div>
   <script>
     fetch("navbar.html")
@@ -92,7 +110,13 @@
       .then(html => document.getElementById("navbar").innerHTML = html);
   </script>
 
+  <header>
+    <h1>LITERING — Absensi & Dashboard</h1>
+    <p>Les Komputer MTs Al Ishlah Panambangan</p>
+  </header>
+
   <main>
+    <!-- DASHBOARD -->
     <section id="dashboard">
       <h2>Rekap Kehadiran Hari Ini (<span id="tanggalHariIni"></span>)</h2>
 
@@ -107,11 +131,12 @@
       <canvas id="chartKehadiran" height="100"></canvas>
     </section>
 
+    <!-- FORM ABSENSI -->
     <section class="absensi-section">
       <h2>Form Absensi Manual / QR</h2>
       <div class="form-card">
         <h3>Scan QR Siswa</h3>
-        <p>Scan QR menggunakan kamera HP/laptop atau isi manual di bawah:</p>
+        <p>Gunakan kamera HP/laptop atau isi manual di bawah:</p>
         <div id="reader" style="width: 300px; margin: 20px auto;"></div>
 
         <input type="text" id="nama" placeholder="Nama siswa (otomatis jika scan QR)">
@@ -129,7 +154,7 @@
     </section>
   </main>
 
-  <!-- 🔹 Script Firebase -->
+  <!-- 🔥 Firebase Script -->
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyDGVM5T-us2R19M-zLmVbMh-NUgjg3Af68",
@@ -174,7 +199,7 @@
         snapshot.forEach(item => {
           const data = item.val();
           if (!data.tanggal) return;
-          if (data.tanggal === today && counts[data.status.toLowerCase()]) {
+          if (data.tanggal === today && counts[data.status.toLowerCase()] !== undefined) {
             counts[data.status.toLowerCase()]++;
           }
         });
@@ -209,12 +234,7 @@
     function kirimAbsensi() {
       const nama = document.getElementById("nama").value.trim();
       const kelas = document.getElementById("kelas").value.trim();
-
-      if (!nama || !kelas || !statusDipilih) {
-        alert("Lengkapi data dulu!");
-        return;
-      }
-
+      if (!nama || !kelas || !statusDipilih) return alert("Lengkapi data dulu!");
       const absensiRef = db.ref("absensi").push();
       absensiRef.set({
         nama, kelas,
@@ -222,7 +242,6 @@
         tanggal: today,
         waktu: new Date().toLocaleString("id-ID")
       });
-
       alert("Absensi berhasil dikirim!");
       kosongkanForm();
       loadData();
@@ -237,6 +256,7 @@
     window.onload = loadData;
   </script>
 
+  <!-- 📱 QR Scanner -->
   <script src="https://unpkg.com/html5-qrcode"></script>
   <script>
     function onScanSuccess(decodedText) {
