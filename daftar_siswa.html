@@ -3,76 +3,113 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Daftar Siswa</title>
+  <title>Daftar Siswa - Litering</title>
   <style>
-    body { font-family: Arial; margin: 20px; text-align: center; }
-    table { margin: auto; border-collapse: collapse; width: 80%; }
-    th, td { border: 1px solid #aaa; padding: 8px; text-align: center; }
-    th { background-color: #f2f2f2; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f7f7f7;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background: white;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #ddd;
+      text-align: left;
+    }
+    th {
+      background: #2c3e50;
+      color: white;
+    }
+    tr:hover {
+      background: #f1f1f1;
+    }
+    .refresh {
+      background: #27ae60;
+      color: white;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-bottom: 10px;
+    }
   </style>
 </head>
 <body>
-  <h1>📋 Daftar Siswa</h1>
-  <table id="siswaTable">
+
+  <h1>📋 Daftar Siswa Litering</h1>
+  <button class="refresh" onclick="loadData()">🔄 Refresh Data</button>
+  <table>
     <thead>
       <tr>
         <th>ID</th>
         <th>Nama</th>
         <th>Kelas</th>
+        <th>Status</th>
       </tr>
     </thead>
-    <tbody>
-      <!-- Data siswa akan muncul di sini -->
+    <tbody id="siswaTable">
+      <tr><td colspan="4" style="text-align:center;">Memuat data...</td></tr>
     </tbody>
   </table>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
-    import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
-    // Konfigurasi Firebase
+  <script>
+    // 🔥 Ganti dengan konfigurasi Firebase kamu (sama seperti di index.html)
     const firebaseConfig = {
-      apiKey: "AIzaSyDGVM5T-us2R19M-zLmVbMh-NUgjg3Af68",
-      authDomain: "litering-absensi.firebaseapp.com",
-      databaseURL: "https://litering-absensi-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "litering-absensi",
-      storageBucket: "litering-absensi.firebasestorage.app",
-      messagingSenderId: "529191002867",
-      appId: "1:529191002867:web:d751dddb59e230f08acd86",
-      measurementId: "G-VGRF516G18"
+      apiKey: "API_KEY_KAMU",
+      authDomain: "PROJECT_ID.firebaseapp.com",
+      databaseURL: "https://PROJECT_ID-default-rtdb.firebaseio.com/",
+      projectId: "PROJECT_ID",
+      storageBucket: "PROJECT_ID.appspot.com",
+      messagingSenderId: "SENDER_ID",
+      appId: "APP_ID"
     };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
 
-    // Ambil data siswa dari Firebase
-    async function loadSiswa() {
-      const dbRef = ref(db);
-      try {
-        const snapshot = await get(child(dbRef, "siswa"));
-        if (snapshot.exists()) {
-          const siswa = snapshot.val();
-          const tbody = document.getElementById("siswaTable").querySelector("tbody");
-          tbody.innerHTML = ""; // kosongkan tabel dulu
-          for (let id in siswa) {
-            const row = document.createElement("tr");
-            row.innerHTML = `
-              <td>${id}</td>
-              <td>${siswa[id].nama}</td>
-              <td>${siswa[id].kelas}</td>
-            `;
-            tbody.appendChild(row);
-          }
-        } else {
-          alert("Belum ada data siswa.");
+    // 🔍 Fungsi untuk ambil data siswa dari Firebase
+    function loadData() {
+      const tbody = document.getElementById("siswaTable");
+      tbody.innerHTML = "<tr><td colspan='4' style='text-align:center;'>Memuat data...</td></tr>";
+
+      db.ref("siswa").once("value").then(snapshot => {
+        tbody.innerHTML = "";
+        if (!snapshot.exists()) {
+          tbody.innerHTML = "<tr><td colspan='4' style='text-align:center;'>Belum ada data siswa.</td></tr>";
+          return;
         }
-      } catch (err) {
-        console.error(err);
-        alert("Gagal mengambil data siswa!");
-      }
+
+        snapshot.forEach(child => {
+          const s = child.val();
+          const row = `
+            <tr>
+              <td>${s.id || '-'}</td>
+              <td>${s.nama || '-'}</td>
+              <td>${s.kelas || '-'}</td>
+              <td>${s.status || '-'}</td>
+            </tr>`;
+          tbody.innerHTML += row;
+        });
+      });
     }
 
-    loadSiswa();
+    // Jalankan saat halaman dibuka
+    window.onload = loadData;
   </script>
+
 </body>
 </html>
