@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daftar Siswa</title>
+  <style>
+    body { font-family: Arial; margin: 20px; text-align: center; }
+    table { margin: auto; border-collapse: collapse; width: 80%; }
+    th, td { border: 1px solid #aaa; padding: 8px; text-align: center; }
+    th { background-color: #f2f2f2; }
+  </style>
+</head>
+<body>
+  <h1>📋 Daftar Siswa</h1>
+  <table id="siswaTable">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Nama</th>
+        <th>Kelas</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Data siswa akan muncul di sini -->
+    </tbody>
+  </table>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+    import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
+
+    // Konfigurasi Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyDGVM5T-us2R19M-zLmVbMh-NUgjg3Af68",
+      authDomain: "litering-absensi.firebaseapp.com",
+      databaseURL: "https://litering-absensi-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "litering-absensi",
+      storageBucket: "litering-absensi.firebasestorage.app",
+      messagingSenderId: "529191002867",
+      appId: "1:529191002867:web:d751dddb59e230f08acd86",
+      measurementId: "G-VGRF516G18"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // Ambil data siswa dari Firebase
+    async function loadSiswa() {
+      const dbRef = ref(db);
+      try {
+        const snapshot = await get(child(dbRef, "siswa"));
+        if (snapshot.exists()) {
+          const siswa = snapshot.val();
+          const tbody = document.getElementById("siswaTable").querySelector("tbody");
+          tbody.innerHTML = ""; // kosongkan tabel dulu
+          for (let id in siswa) {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td>${id}</td>
+              <td>${siswa[id].nama}</td>
+              <td>${siswa[id].kelas}</td>
+            `;
+            tbody.appendChild(row);
+          }
+        } else {
+          alert("Belum ada data siswa.");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Gagal mengambil data siswa!");
+      }
+    }
+
+    loadSiswa();
+  </script>
+</body>
+</html>
