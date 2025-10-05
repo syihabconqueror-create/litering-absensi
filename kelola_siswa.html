@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kelola Data Siswa - Litering</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      margin-top: 20px;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #ddd;
+      text-align: left;
+    }
+    th {
+      background: #2c3e50;
+      color: #fff;
+    }
+    tr:hover {
+      background: #f1f1f1;
+    }
+    button {
+      padding: 6px 10px;
+      margin: 2px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      color: white;
+    }
+    .add-btn { background: #27ae60; }
+    .edit-btn { background: #f39c12; }
+    .delete-btn { background: #e74c3c; }
+    .save-btn { background: #2980b9; }
+    .cancel-btn { background: #7f8c8d; }
+    form {
+      margin-top: 20px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    input {
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>📚 Kelola Data Siswa Litering</h1>
+
+  <form id="formTambah">
+    <input type="text" id="id" placeholder="ID Siswa" required>
+    <input type="text" id="nama" placeholder="Nama Siswa" required>
+    <input type="text" id="kelas" placeholder="Kelas" required>
+    <button type="submit" class="add-btn">➕ Tambah</button>
+  </form>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Nama</th>
+        <th>Kelas</th>
+        <th>Aksi</th>
+      </tr>
+    </thead>
+    <tbody id="siswaTable">
+      <tr><td colspan="4" style="text-align:center;">Memuat data...</td></tr>
+    </tbody>
+  </table>
+
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script>
+    // Konfigurasi Firebase kamu (sama seperti file lain)
+    const firebaseConfig = {
+      apiKey: "AIzaSyDGVM5T-us2R19M-zLmVbMh-NUgjg3Af68",
+      authDomain: "litering-absensi.firebaseapp.com",
+      databaseURL: "https://litering-absensi-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "litering-absensi",
+      storageBucket: "litering-absensi.firebasestorage.app",
+      messagingSenderId: "529191002867",
+      appId: "1:529191002867:web:d751dddb59e230f08acd86",
+      measurementId: "G-VGRF516G18"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const tbody = document.getElementById("siswaTable");
+    const form = document.getElementById("formTambah");
+
+    // 🔹 Tampilkan data siswa
+    function loadData() {
+      db.ref("siswa").on("value", snapshot => {
+        tbody.innerHTML = "";
+        if (!snapshot.exists()) {
+          tbody.innerHTML = "<tr><td colspan='4' style='text-align:center;'>Belum ada data siswa.</td></tr>";
+          return;
+        }
+
+        snapshot.forEach(child => {
+          const id = child.key;
+          const s = child.val();
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${id}</td>
+            <td>${s.nama}</td>
+            <td>${s.kelas}</td>
+            <td>
+              <button class="edit-btn" onclick="editSiswa('${id}', '${s.nama}', '${s.kelas}')">Edit</button>
+              <button class="delete-btn" onclick="hapusSiswa('${id}')">Hapus</button>
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+      });
+    }
+
+    // 🔹 Tambah siswa baru
+    form.addEventListener("submit", e => {
+      e.preventDefault();
+      const id = document.getElementById("id").value.trim();
+      const nama = document.getElementById("nama").value.trim();
+      const kelas = document.getElementById("kelas").value.trim();
+
+      if (!id || !nama || !kelas) return alert("Semua kolom harus diisi!");
+
+      db.ref("siswa/" + id).set({ nama, kelas })
+        .then(() => {
+          alert("✅ Siswa berhasil ditambahkan!");
+          form.reset();
+        });
+    });
+
+    // 🔹 Edit siswa
+    window.editSiswa = function(id, nama, kelas) {
+      const newNama = prompt("Ubah nama siswa:", nama);
+      const newKelas = prompt("Ubah kelas siswa:", kelas);
+      if (newNama && newKelas) {
+        db.ref("siswa/" + id).update({ nama: newNama, kelas: newKelas })
+          .then(() => alert("✏️ Data siswa berhasil diperbarui!"));
+      }
+    };
+
+    // 🔹 Hapus siswa
+    window.hapusSiswa = function(id) {
+      if (confirm("Yakin ingin menghapus siswa ini?")) {
+        db.ref("siswa/" + id).remove()
+          .then(() => alert("🗑️ Siswa berhasil dihapus!"));
+      }
+    };
+
+    loadData();
+  </script>
+</body>
+</html>
