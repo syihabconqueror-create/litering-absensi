@@ -1,123 +1,99 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>LITERING — Admin Rekap Absensi</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LITERING — Admin: Rekap Absensi</title>
   <style>
-    body { font-family: system-ui, Arial; max-width:1100px; margin:20px auto; padding:12px; }
-    .controls{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-    input, select { padding:8px; }
-    table{ width:100%; border-collapse:collapse; margin-top:12px; }
-    th, td{ border:1px solid #ddd; padding:8px; text-align:left; }
-    .card{ border:1px solid #ddd; padding:12px; border-radius:8px; margin-top:12px; }
-    button{ padding:8px 12px; }
+    body { font-family: Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 0; }
+    header { background-color: #2c3e50; color: white; padding: 15px; text-align: center; }
+    main { padding: 20px; max-width: 1000px; margin: auto; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; border-radius: 8px; overflow: hidden; }
+    th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+    th { background-color: #2c3e50; color: white; }
+    tr:nth-child(even) { background-color: #f2f2f2; }
+    .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 20px; }
+    input, select, button { padding: 8px; font-size: 14px; }
+    button { background-color: #3498db; color: white; border: none; cursor: pointer; border-radius: 5px; }
+    button:hover { background-color: #2980b9; }
   </style>
 </head>
 <body>
-  <h1>LITERING — Admin: Rekap Absensi</h1>
 
-  <div class="card">
+  <header>
+    <h1>LITERING — Admin: Rekap Absensi</h1>
+  </header>
+
+  <main>
     <div class="controls">
-      <label for="datePick">Tanggal</label>
-      <input type="date" id="datePick" />
-      <label for="filterKelas">Filter Kelas</label>
-      <input id="filterKelas" placeholder="kosong = semua" />
+      <label>Tanggal:</label>
+      <input type="date" id="filterTanggal">
+      <label>Filter Kelas:</label>
+      <input type="text" id="filterKelas" placeholder="Kosong = semua">
       <button id="btnLoad">Load</button>
-      <button id="btnExport">Export CSV</button>
-      <span id="status" style="margin-left:12px;color:#555"></span>
     </div>
-  </div>
 
-  <div id="tableWrap" class="card">
-    <table id="tbl">
-      <thead><tr><th>#</th><th>Waktu</th><th>Nama</th><th>Kelas</th><th>Status</th></tr></thead>
+    <table id="tabelAbsensi">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Waktu</th>
+          <th>Nama</th>
+          <th>Kelas</th>
+          <th>Status</th>
+        </tr>
+      </thead>
       <tbody></tbody>
     </table>
-  </div>
+  </main>
 
-  <script type="module">
-    import { listenAttendanceByDate, readAllAttendance } from './firebase.js';
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
-    const datePick = document.getElementById('datePick');
-    const filterKelas = document.getElementById('filterKelas');
-    const btnLoad = document.getElementById('btnLoad');
-    const btnExport = document.getElementById('btnExport');
-    const status = document.getElementById('status');
-    const tbody = document.querySelector('#tbl tbody');
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDGVM5T-us2R19M-zLmVbMh-NUgjg3Af68",
+      authDomain: "litering-absensi.firebaseapp.com",
+      databaseURL: "https://litering-absensi-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "litering-absensi",
+      storageBucket: "litering-absensi.firebasestorage.app",
+      messagingSenderId: "529191002867",
+      appId: "1:529191002867:web:d751dddb59e230f08acd86",
+      measurementId: "G-VGRF516G18"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
 
-    // set default date = today
-    const today = new Date().toISOString().slice(0,10);
-    datePick.value = today;
+    const tbody = document.querySelector("#tabelAbsensi tbody");
+    const btnLoad = document.getElementById("btnLoad");
 
-    let currentData = {}; // holds object from DB for current date
-
-    btnLoad.addEventListener('click', ()=> loadFor(datePick.value));
-
-    function formatTime(iso) {
-      if (!iso) return '';
-      const d = new Date(iso);
-      return d.toLocaleString('id-ID', { hour12:false });
-    }
-
-    function renderTableFor(dataObj) {
-      // dataObj: { key1: record, key2: record}
-      currentData = dataObj || {};
-      tbody.innerHTML = '';
-      const rows = Object.entries(currentData).map(([k,rec]) => ({ key:k, rec }));
-      // optional sort by timestamp
-      rows.sort((a,b)=> (a.rec.timestampUtcMs || 0) - (b.rec.timestampUtcMs || 0));
-      const kelasFilter = filterKelas.value.trim().toLowerCase();
-      let index = 0;
-      for (const row of rows) {
-        const r = row.rec;
-        if (kelasFilter && (!r.kelas || r.kelas.toLowerCase().indexOf(kelasFilter)===-1)) continue;
-        index++;
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${index}</td>
-                        <td>${formatTime(r.timestampISO)}</td>
-                        <td>${escapeHtml(r.name)}</td>
-                        <td>${escapeHtml(r.kelas)}</td>
-                        <td>${escapeHtml(r.status)}</td>`;
-        tbody.appendChild(tr);
-      }
-      status.innerText = `Menampilkan ${index} baris.`;
-    }
-
-    // load for specific date using listener (live updates)
-    function loadFor(dateKey) {
-      status.innerText = 'Memuat...';
-      listenAttendanceByDate(dateKey, (val)=>{
-        renderTableFor(val);
+    function loadData() {
+      tbody.innerHTML = "<tr><td colspan='5'>Memuat data...</td></tr>";
+      db.ref("absensi").once("value", snapshot => {
+        tbody.innerHTML = "";
+        let no = 1;
+        snapshot.forEach(item => {
+          const data = item.val();
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${no++}</td>
+            <td>${data.waktu || '-'}</td>
+            <td>${data.nama || '-'}</td>
+            <td>${data.kelas || '-'}</td>
+            <td>${data.status || '-'}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+        if (no === 1) {
+          tbody.innerHTML = "<tr><td colspan='5'>Belum ada data absensi</td></tr>";
+        }
       });
     }
 
-    // export CSV from currentData + class filter
-    btnExport.addEventListener('click', ()=>{
-      const kelasFilter = filterKelas.value.trim().toLowerCase();
-      const rows = [];
-      for (const [k,r] of Object.entries(currentData)) {
-        if (kelasFilter && (!r.kelas || r.kelas.toLowerCase().indexOf(kelasFilter)===-1)) continue;
-        rows.push([r.timestampISO || '', r.name || '', r.kelas||'', r.status||'']);
-      }
-      if (rows.length===0) { alert('Tidak ada data untuk diexport.'); return; }
-      // header + rows
-      const csv = [['Waktu','Nama','Kelas','Status'], ...rows].map(r => r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `absensi_${datePick.value || 'all'}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    });
-
-    function escapeHtml(s='') { return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
-
-    // initial load for today
-    loadFor(datePick.value);
+    btnLoad.addEventListener("click", loadData);
+    window.onload = loadData;
   </script>
+
 </body>
 </html>
