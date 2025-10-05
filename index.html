@@ -118,7 +118,15 @@
   <main>
     <!-- DASHBOARD -->
     <section id="dashboard">
-      <h2>Rekap Kehadiran Hari Ini (<span id="tanggalHariIni"></span>)</h2>
+      <div style="display: flex; align-items: center; gap: 10px; justify-content: center;">
+        <h3 id="rekapTitle">Rekap Kehadiran Hari Ini</h3>
+        <select id="filterRekap" onchange="updateRekap()">
+          <option value="hari">Hari Ini</option>
+          <option value="minggu">Minggu Ini</option>
+          <option value="bulan">Bulan Ini</option>
+          <option value="tahun">Tahun Ini</option>
+        </select>
+      </div>
 
       <div class="summary">
         <div class="card"><h3>Hadir</h3><h2 id="hadirCount" class="hadir">0</h2></div>
@@ -139,8 +147,7 @@
         <p>Gunakan kamera HP/laptop atau isi manual di bawah:</p>
         <div id="reader" style="width: 300px; margin: 20px auto;"></div>
 
-        <input type="text" id="nama" placeholder="Nama siswa (otomatis jika scan QR)">
-        <input type="text" id="kelas" placeholder="Kelas (otomatis jika scan QR)">
+        <input type="text" id="idSiswa" placeholder="ID Siswa (otomatis jika scan QR)">
 
         <h4>Pilih Status</h4>
         <button class="status-btn" onclick="setStatus('Hadir')">Hadir</button>
@@ -163,29 +170,23 @@
       projectId: "litering-absensi",
       storageBucket: "litering-absensi.firebasestorage.app",
       messagingSenderId: "529191002867",
-      appId: "1:529191002867:web:d751dddb59e230f08acd86",
-      measurementId: "G-VGRF516G18"
+      appId: "1:529191002867:web:d751dddb59e230f08acd86"
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    const tgl = new Date();
-    const today = `${tgl.getDate().toString().padStart(2,"0")}-${(tgl.getMonth()+1).toString().padStart(2,"0")}-${tgl.getFullYear()}`;
-    document.getElementById("tanggalHariIni").textContent = today;
-
-    const counts = { hadir: 0, izin: 0, sakit: 0, alfa: 0 };
     const ctx = document.getElementById("chartKehadiran").getContext("2d");
     let chart;
     let statusDipilih = "";
 
-    function renderChart() {
+    function renderChart(hadir, izin, sakit, alfa) {
       if (chart) chart.destroy();
       chart = new Chart(ctx, {
         type: "doughnut",
         data: {
           labels: ["Hadir", "Izin", "Sakit", "Alfa"],
           datasets: [{
-            data: [counts.hadir, counts.izin, counts.sakit, counts.alfa],
+            data: [hadir, izin, sakit, alfa],
             backgroundColor: ["#16a34a", "#eab308", "#2563eb", "#dc2626"]
           }]
         },
@@ -193,82 +194,6 @@
       });
     }
 
-    function loadData() {
-      db.ref("absensi").once("value", snapshot => {
-        Object.keys(counts).forEach(k => counts[k] = 0);
-        snapshot.forEach(item => {
-          const data = item.val();
-          if (!data.tanggal) return;
-          if (data.tanggal === today && counts[data.status.toLowerCase()] !== undefined) {
-            counts[data.status.toLowerCase()]++;
-          }
-        });
-        document.getElementById("hadirCount").textContent = counts.hadir;
-        document.getElementById("izinCount").textContent = counts.izin;
-        document.getElementById("sakitCount").textContent = counts.sakit;
-        document.getElementById("alfaCount").textContent = counts.alfa;
-        renderChart();
-      });
-    }
-
-    document.getElementById("btnDownload").addEventListener("click", () => {
-      db.ref("absensi").once("value", snapshot => {
-        let csv = "Nama,Kelas,Tanggal,Status,Waktu\n";
-        snapshot.forEach(item => {
-          const d = item.val();
-          csv += `${d.nama || "-"},${d.kelas || "-"},${d.tanggal || "-"},${d.status || "-"},${d.waktu || "-"}\n`;
-        });
-        const blob = new Blob([csv], { type: "text/csv" });
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = `rekap_absensi_${today}.csv`;
-        a.click();
-      });
-    });
-
-    function setStatus(status) {
-      statusDipilih = status;
-      alert("Status dipilih: " + status);
-    }
-
-    function kirimAbsensi() {
-      const nama = document.getElementById("nama").value.trim();
-      const kelas = document.getElementById("kelas").value.trim();
-      if (!nama || !kelas || !statusDipilih) return alert("Lengkapi data dulu!");
-      const absensiRef = db.ref("absensi").push();
-      absensiRef.set({
-        nama, kelas,
-        status: statusDipilih,
-        tanggal: today,
-        waktu: new Date().toLocaleString("id-ID")
-      });
-      alert("Absensi berhasil dikirim!");
-      kosongkanForm();
-      loadData();
-    }
-
-    function kosongkanForm() {
-      document.getElementById("nama").value = "";
-      document.getElementById("kelas").value = "";
-      statusDipilih = "";
-    }
-
-    window.onload = loadData;
-  </script>
-
-  <!-- 📱 QR Scanner -->
-  <script src="https://unpkg.com/html5-qrcode"></script>
-  <script>
-    function onScanSuccess(decodedText) {
-      const [nama, kelas] = decodedText.split("|");
-      document.getElementById("nama").value = nama;
-      document.getElementById("kelas").value = kelas;
-      alert(`Scan berhasil: ${nama} (${kelas})`);
-    }
-
-    const html5QrCode = new Html5Qrcode("reader");
-    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, onScanSuccess)
-      .catch(err => console.error("Kamera error:", err));
-  </script>
-</body>
-</html>
+    function loadRekap(filter = "hari") {
+      const now = new Date();
+      const today = now.t
