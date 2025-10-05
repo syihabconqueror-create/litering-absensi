@@ -5,7 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Daftar Siswa - Litering</title>
   <style>
-    body {
+    body 
+    <link rel="stylesheet" href="style.css">
+
+<div id="navbar"></div>
+<script>
+  fetch("navbar.html")
+    .then(res => res.text())
+    .then(html => document.getElementById("navbar").innerHTML = html);
+</script>
+
+    {
       font-family: Arial, sans-serif;
       background: #f7f7f7;
       padding: 20px;
@@ -167,5 +177,6 @@
 
 </body>
 </html>
+
 
 
