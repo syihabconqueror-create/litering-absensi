@@ -3,165 +3,116 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LITERING — Absensi & Dashboard</title>
+  <title>Rekap Absensi - Litering</title>
 
-  <!-- STYLE -->
-  <link rel="stylesheet" href="style.css" />
-
-  <!-- Firebase & Chart.js -->
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
     body {
-      font-family: 'Segoe UI', sans-serif;
-      background-color: #f8fafc;
+      font-family: "Segoe UI", sans-serif;
+      background: #f4f7fc;
       margin: 0;
+      padding: 20px;
     }
-
     header {
       background: #1e3a8a;
       color: white;
-      text-align: center;
       padding: 15px;
-    }
-
-    main {
-      padding: 20px;
-      max-width: 1000px;
-      margin: auto;
-    }
-
-    /* --- DASHBOARD --- */
-    .summary {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 15px;
-    }
-
-    .card {
-      background: white;
-      border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-      padding: 15px;
+      border-radius: 8px;
       text-align: center;
     }
-
-    .hadir { color: #16a34a; }
-    .izin { color: #eab308; }
-    .sakit { color: #2563eb; }
-    .alfa { color: #dc2626; }
-
-    canvas {
-      background: white;
-      border-radius: 10px;
-      margin-top: 25px;
-      padding: 10px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    /* --- ABSENSI --- */
-    .absensi-section { margin-top: 40px; }
-    .form-card {
-      border: 1px solid #ccc;
-      border-radius: 10px;
-      padding: 20px;
+    h1 { margin: 0; }
+    .filter-box {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
       margin: 20px auto;
-      width: 90%;
-      max-width: 500px;
-      background: white;
+      justify-content: center;
+      align-items: center;
     }
-
-    input, button {
-      margin: 5px;
-      padding: 10px;
-      width: 90%;
-      max-width: 400px;
+    select, input, button {
+      padding: 8px 12px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      font-size: 14px;
     }
-
     button {
-      cursor: pointer;
-      border: none;
-      border-radius: 6px;
       background: #2563eb;
       color: white;
+      cursor: pointer;
+      border: none;
     }
-
-    .status-btn {
-      width: auto;
-      padding: 10px 20px;
-      margin: 5px;
-      background: #e0e7ff;
-      color: #2563eb;
+    button:hover {
+      background: #1d4ed8;
     }
-
-    .status-btn:hover { background: #c7d2fe; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ddd;
+      text-align: center;
+    }
+    th {
+      background: #1e3a8a;
+      color: white;
+    }
+    tr:nth-child(even) {
+      background: #f9fafb;
+    }
+    footer {
+      margin-top: 20px;
+      text-align: center;
+      color: #666;
+    }
   </style>
 </head>
-
 <body>
-
-  <!-- 🔹 NAVBAR (otomatis dari file navbar.html) -->
-  <div id="navbar"></div>
-  <script>
-    fetch("navbar.html")
-      .then(res => res.text())
-      .then(html => document.getElementById("navbar").innerHTML = html);
-  </script>
-
   <header>
-    <h1>LITERING — Absensi & Dashboard</h1>
-    <p>Les Komputer MTs Al Ishlah Panambangan</p>
+    <h1>📊 Rekap Absensi Litering</h1>
+    <p>Laporan kehadiran siswa berdasarkan waktu</p>
   </header>
 
-  <main>
-    <!-- DASHBOARD -->
-    <section id="dashboard">
-      <div style="display: flex; align-items: center; gap: 10px; justify-content: center;">
-        <h3 id="rekapTitle">Rekap Kehadiran Hari Ini</h3>
-        <select id="filterRekap" onchange="updateRekap()">
-          <option value="hari">Hari Ini</option>
-          <option value="minggu">Minggu Ini</option>
-          <option value="bulan">Bulan Ini</option>
-          <option value="tahun">Tahun Ini</option>
-        </select>
-      </div>
+  <div class="filter-box">
+    <label for="filter">Tampilkan Berdasarkan:</label>
+    <select id="filter">
+      <option value="hari">Hari Ini</option>
+      <option value="minggu">Minggu Ini</option>
+      <option value="bulan">Bulan Ini</option>
+      <option value="tahun">Tahun Ini</option>
+    </select>
+    <input type="date" id="tanggal" />
+    <button onclick="loadRekap()">Tampilkan</button>
+  </div>
 
-      <div class="summary">
-        <div class="card"><h3>Hadir</h3><h2 id="hadirCount" class="hadir">0</h2></div>
-        <div class="card"><h3>Izin</h3><h2 id="izinCount" class="izin">0</h2></div>
-        <div class="card"><h3>Sakit</h3><h2 id="sakitCount" class="sakit">0</h2></div>
-        <div class="card"><h3>Alfa</h3><h2 id="alfaCount" class="alfa">0</h2></div>
-      </div>
+  <table>
+    <thead>
+      <tr>
+        <th>No</th>
+        <th>ID Siswa</th>
+        <th>Nama</th>
+        <th>Kelas</th>
+        <th>Tanggal</th>
+        <th>Jam</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="rekapBody">
+      <tr><td colspan="7">Memuat data...</td></tr>
+    </tbody>
+  </table>
 
-      <button id="btnDownload">⬇️ Download Rekap (CSV)</button>
-      <canvas id="chartKehadiran" height="100"></canvas>
-    </section>
+  <footer>
+    &copy; 2025 Litering Absensi - MTS Al Ishlah Panambangan
+  </footer>
 
-    <!-- FORM ABSENSI -->
-    <section class="absensi-section">
-      <h2>Form Absensi Manual / QR</h2>
-      <div class="form-card">
-        <h3>Scan QR Siswa</h3>
-        <p>Gunakan kamera HP/laptop atau isi manual di bawah:</p>
-        <div id="reader" style="width: 300px; margin: 20px auto;"></div>
-
-        <input type="text" id="idSiswa" placeholder="ID Siswa (otomatis jika scan QR)">
-
-        <h4>Pilih Status</h4>
-        <button class="status-btn" onclick="setStatus('Hadir')">Hadir</button>
-        <button class="status-btn" onclick="setStatus('Izin')">Izin</button>
-        <button class="status-btn" onclick="setStatus('Sakit')">Sakit</button>
-        <button class="status-btn" onclick="setStatus('Alfa')">Alfa</button>
-        <br>
-        <button onclick="kirimAbsensi()">Kirim Absensi</button>
-        <button onclick="kosongkanForm()">Kosongkan</button>
-      </div>
-    </section>
-  </main>
-
-  <!-- 🔥 Firebase Script -->
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyDGVM5T-us2R19M-zLmVbMh-NUgjg3Af68",
@@ -170,30 +121,91 @@
       projectId: "litering-absensi",
       storageBucket: "litering-absensi.firebasestorage.app",
       messagingSenderId: "529191002867",
-      appId: "1:529191002867:web:d751dddb59e230f08acd86"
+      appId: "1:529191002867:web:d751dddb59e230f08acd86",
+      measurementId: "G-VGRF516G18"
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    const ctx = document.getElementById("chartKehadiran").getContext("2d");
-    let chart;
-    let statusDipilih = "";
+    function formatDate(date) {
+      return date.toISOString().split('T')[0];
+    }
 
-    function renderChart(hadir, izin, sakit, alfa) {
-      if (chart) chart.destroy();
-      chart = new Chart(ctx, {
-        type: "doughnut",
-        data: {
-          labels: ["Hadir", "Izin", "Sakit", "Alfa"],
-          datasets: [{
-            data: [hadir, izin, sakit, alfa],
-            backgroundColor: ["#16a34a", "#eab308", "#2563eb", "#dc2626"]
-          }]
-        },
-        options: { plugins: { legend: { position: "bottom" } } }
+    function getWeekDates() {
+      const now = new Date();
+      const first = now.getDate() - now.getDay() + 1;
+      const last = first + 6;
+      const start = new Date(now.setDate(first));
+      const end = new Date(now.setDate(last));
+      return [formatDate(start), formatDate(end)];
+    }
+
+    async function loadRekap() {
+      const tbody = document.getElementById("rekapBody");
+      const filter = document.getElementById("filter").value;
+      const tanggalInput = document.getElementById("tanggal").value;
+      tbody.innerHTML = "<tr><td colspan='7'>Memuat data...</td></tr>";
+
+      const allData = [];
+      const snapshot = await db.ref("absensi").once("value");
+      if (!snapshot.exists()) {
+        tbody.innerHTML = "<tr><td colspan='7'>Belum ada data absensi</td></tr>";
+        return;
+      }
+
+      let targetDate = tanggalInput || formatDate(new Date());
+      const now = new Date(targetDate);
+
+      const start = new Date(now);
+      const end = new Date(now);
+
+      if (filter === "hari") {
+        // hanya 1 hari
+      } else if (filter === "minggu") {
+        const [s, e] = getWeekDates();
+        start.setTime(new Date(s));
+        end.setTime(new Date(e));
+      } else if (filter === "bulan") {
+        start.setDate(1);
+        end.setMonth(start.getMonth() + 1, 0);
+      } else if (filter === "tahun") {
+        start.setMonth(0, 1);
+        end.setMonth(11, 31);
+      }
+
+      snapshot.forEach(child => {
+        const item = child.val();
+        const tgl = item.tanggal;
+        if (!tgl) return;
+        const tglDate = new Date(tgl);
+        if (tglDate >= start && tglDate <= end) {
+          allData.push(item);
+        }
+      });
+
+      if (allData.length === 0) {
+        tbody.innerHTML = "<tr><td colspan='7'>Tidak ada data untuk rentang waktu ini.</td></tr>";
+        return;
+      }
+
+      tbody.innerHTML = "";
+      allData.forEach((data, i) => {
+        const row = `
+          <tr>
+            <td>${i + 1}</td>
+            <td>${data.id || '-'}</td>
+            <td>${data.nama || '-'}</td>
+            <td>${data.kelas || '-'}</td>
+            <td>${data.tanggal || '-'}</td>
+            <td>${data.jam || '-'}</td>
+            <td>${data.status || '-'}</td>
+          </tr>
+        `;
+        tbody.innerHTML += row;
       });
     }
 
-    function loadRekap(filter = "hari") {
-      const now = new Date();
-      const today = now.t
+    window.onload = loadRekap;
+  </script>
+</body>
+</html>
