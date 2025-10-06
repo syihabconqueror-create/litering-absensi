@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LITERING — Admin: Rekap Absensi</title>
+
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -100,8 +101,6 @@
 </head>
 
 <body>
-
-  <!-- ✅ Navbar/logo ditaruh di sini -->
   <div class="navbar">
     <img src="logo.png" alt="Logo LITERING" class="logo">
     <span class="judul">Al Ishlah Computer Learning</span>
@@ -117,13 +116,15 @@
       <input type="date" id="filterTanggal">
       <label>Filter Kelas:</label>
       <input type="text" id="filterKelas" placeholder="Kosong = semua">
-      <button id="btnLoad">Load</button>
+      <button id="btnLoad">🔄 Load</button>
+      <button id="btnDownload">⬇️ Download CSV</button>
     </div>
 
     <table id="tabelAbsensi">
       <thead>
         <tr>
           <th>#</th>
+          <th>Tanggal</th>
           <th>Waktu</th>
           <th>Nama</th>
           <th>Kelas</th>
@@ -134,16 +135,103 @@
     </table>
   </main>
 
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js"></script>
+  <!-- ✅ Firebase v9+ Modular -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
-  <script>
     const firebaseConfig = {
       apiKey: "AIzaSyDGVM5T-us2R19M-zLmVbMh-NUgjg3Af68",
       authDomain: "litering-absensi.firebaseapp.com",
       databaseURL: "https://litering-absensi-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "litering-absensi",
+      storageBucket: "litering-absensi.firebasestorage.app",
+      messagingSenderId: "529191002867",
+      appId: "1:529191002867:web:d751dddb59e230f08acd86"
+    };
 
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
+    const tabelBody = document.querySelector("#tabelAbsensi tbody");
 
+    // Fungsi ambil rekap absensi
+    async function loadRekap() {
+      const tglFilter = document.getElementById("filterTanggal").value;
+      const kelasFilter = document.getElementById("filterKelas").value.trim().toLowerCase();
 
+      const absensiSnap = await get(ref(db, "absensi"));
+      const siswaSnap = await get(ref(db, "siswa"));
+
+      const siswaData = {};
+      siswaSnap.forEach(s => {
+        const d = s.val();
+        siswaData[d.id] = { nama: d.nama, kelas: d.kelas };
+      });
+
+      let no = 1;
+      tabelBody.innerHTML = "";
+      const hasil = [];
+
+      absensiSnap.forEach(a => {
+        const d = a.val();
+        const siswa = siswaData[d.id] || {};
+        if (!d.tanggal) return;
+
+        // filter tanggal & kelas
+        const cocokTanggal = !tglFilter || d.tanggal === formatTanggal(tglFilter);
+        const cocokKelas = !kelasFilter || (siswa.kelas && siswa.kelas.toLowerCase().includes(kelasFilter));
+
+        if (cocokTanggal && cocokKelas) {
+          hasil.push({
+            no: no++,
+            tanggal: d.tanggal,
+            waktu: d.waktu || "-",
+            nama: siswa.nama || d.id,
+            kelas: siswa.kelas || "-",
+            status: d.status
+          });
+        }
+      });
+
+      hasil.sort((a,b) => new Date(b.tanggal) - new Date(a.tanggal));
+      hasil.forEach(row => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${row.no}</td>
+          <td>${row.tanggal}</td>
+          <td>${row.waktu}</td>
+          <td>${row.nama}</td>
+          <td>${row.kelas}</td>
+          <td>${row.status}</td>
+        `;
+        tabelBody.appendChild(tr);
+      });
+    }
+
+    function formatTanggal(inputDate) {
+      // ubah yyyy-mm-dd → dd-mm-yyyy
+      const [y, m, d] = inputDate.split("-");
+      return `${d}-${m}-${y}`;
+    }
+
+    // Download CSV
+    document.getElementById("btnDownload").addEventListener("click", async () => {
+      const absensiSnap = await get(ref(db, "absensi"));
+      let csv = "ID Siswa,Tanggal,Waktu,Status\n";
+      absensiSnap.forEach(a => {
+        const d = a.val();
+        csv += `${d.id},${d.tanggal},${d.waktu},${d.status}\n`;
+      });
+      const blob = new Blob([csv], { type: "text/csv" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "rekap_absensi.csv";
+      a.click();
+    });
+
+    document.getElementById("btnLoad").addEventListener("click", loadRekap);
+    window.onload = loadRekap;
+  </script>
+</body>
+</html>
