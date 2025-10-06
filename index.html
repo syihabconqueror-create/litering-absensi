@@ -196,4 +196,111 @@
 
     function loadRekap(filter = "hari") {
       const now = new Date();
-      const today = now.t
+      const today = now.toLocaleDateString("id-ID");
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay() + 1);
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+
+      db.ref("absensi").once("value", snapshot => {
+        let hadir = 0, izin = 0, sakit = 0, alfa = 0;
+
+        snapshot.forEach(child => {
+          const d = child.val();
+          if (!d.tanggal) return;
+          const tglData = new Date(d.tanggal.split("-").reverse().join("-"));
+          let include = false;
+
+          if (filter === "hari") include = d.tanggal === today;
+          else if (filter === "minggu") include = tglData >= startOfWeek;
+          else if (filter === "bulan") include = tglData >= startOfMonth;
+          else if (filter === "tahun") include = tglData >= startOfYear;
+
+          if (include) {
+            if (d.status === "Hadir") hadir++;
+            else if (d.status === "Izin") izin++;
+            else if (d.status === "Sakit") sakit++;
+            else if (d.status === "Alfa") alfa++;
+          }
+        });
+
+        document.getElementById("hadirCount").innerText = hadir;
+        document.getElementById("izinCount").innerText = izin;
+        document.getElementById("sakitCount").innerText = sakit;
+        document.getElementById("alfaCount").innerText = alfa;
+        renderChart(hadir, izin, sakit, alfa);
+      });
+    }
+
+    function updateRekap() {
+      const filter = document.getElementById("filterRekap").value;
+      let title = "Rekap Kehadiran ";
+      if (filter === "hari") title += "Hari Ini";
+      else if (filter === "minggu") title += "Minggu Ini";
+      else if (filter === "bulan") title += "Bulan Ini";
+      else if (filter === "tahun") title += "Tahun Ini";
+      document.getElementById("rekapTitle").innerText = title;
+      loadRekap(filter);
+    }
+
+    function setStatus(status) {
+      statusDipilih = status;
+      alert("Status dipilih: " + status);
+    }
+
+    function kirimAbsensi() {
+      const idSiswa = document.getElementById("idSiswa").value.trim();
+      if (!idSiswa || !statusDipilih) return alert("Lengkapi data dulu!");
+
+      const today = new Date();
+      const tglString = `${today.getDate().toString().padStart(2,"0")}-${(today.getMonth()+1).toString().padStart(2,"0")}-${today.getFullYear()}`;
+
+      db.ref("absensi").push({
+        id: idSiswa,
+        status: statusDipilih,
+        tanggal: tglString,
+        waktu: new Date().toLocaleString("id-ID")
+      });
+
+      alert("Absensi berhasil dikirim!");
+      kosongkanForm();
+      loadRekap(document.getElementById("filterRekap").value);
+    }
+
+    function kosongkanForm() {
+      document.getElementById("idSiswa").value = "";
+      statusDipilih = "";
+    }
+
+    document.getElementById("btnDownload").addEventListener("click", () => {
+      db.ref("absensi").once("value", snapshot => {
+        let csv = "ID Siswa,Tanggal,Status,Waktu\n";
+        snapshot.forEach(item => {
+          const d = item.val();
+          csv += `${d.id || "-"},${d.tanggal || "-"},${d.status || "-"},${d.waktu || "-"}\n`;
+        });
+        const blob = new Blob([csv], { type: "text/csv" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `rekap_absensi_${new Date().toLocaleDateString("id-ID")}.csv`;
+        a.click();
+      });
+    });
+
+    window.onload = () => loadRekap("hari");
+  </script>
+
+  <!-- 📱 QR Scanner -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script>
+    function onScanSuccess(decodedText) {
+      document.getElementById("idSiswa").value = decodedText;
+      alert(`Scan berhasil: ID ${decodedText}`);
+    }
+
+    const html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, onScanSuccess)
+      .catch(err => console.error("Kamera error:", err));
+  </script>
+</body>
+</html>
