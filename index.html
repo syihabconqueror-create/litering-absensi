@@ -176,6 +176,7 @@
   </main>
 
   <!-- 🔥 Firebase Script -->
+   <!-- 🔥 Firebase Script -->
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyDGVM5T-us2R19M-zLmVbMh-NUgjg3Af68",
@@ -191,7 +192,6 @@
 
     const ctx = document.getElementById("chartKehadiran").getContext("2d");
     let chart;
-    let statusDipilih = "";
 
     function renderChart(hadir, izin, sakit, alfa) {
       if (chart) chart.destroy();
@@ -213,10 +213,48 @@
       return new Date(`${y}-${m}-${d}`);
     }
 
-    async function loadRekap(filter = "hari") {
+    // 🟢 FUNGSI MEMBUAT ABSENSI OTOMATIS HARI INI
+    async function mulaiAbsensiHariIni() {
       const now = new Date();
       const todayStr = `${now.getDate().toString().padStart(2,"0")}-${(now.getMonth()+1).toString().padStart(2,"0")}-${now.getFullYear()}`;
 
+      const [siswaSnap, absensiSnap] = await Promise.all([
+        db.ref("siswa").once("value"),
+        db.ref("absensi").once("value")
+      ]);
+
+      const siswaData = siswaSnap.val() || {};
+      const absensiData = absensiSnap.val() || {};
+
+      // Cek apakah sudah ada absensi hari ini
+      let sudahAdaHariIni = false;
+      Object.values(absensiData).forEach(d => {
+        if (d.tanggal === todayStr) sudahAdaHariIni = true;
+      });
+
+      if (sudahAdaHariIni) {
+        alert("✅ Absensi hari ini sudah dibuat!");
+        return;
+      }
+
+      // Buat otomatis semua siswa status Alfa
+      for (let id in siswaData) {
+        await db.ref("absensi").push({
+          id,
+          status: "Alfa",
+          tanggal: todayStr,
+          waktu: new Date().toLocaleString("id-ID")
+        });
+      }
+
+      alert("🟢 Absensi hari ini sudah diinisialisasi (semua Alfa).");
+      loadRekap("hari");
+    }
+
+    // 🔹 Fungsi menampilkan rekap
+    async function loadRekap(filter = "hari") {
+      const now = new Date();
+      const todayStr = `${now.getDate().toString().padStart(2,"0")}-${(now.getMonth()+1).toString().padStart(2,"0")}-${now.getFullYear()}`;
       const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - now.getDay() + 1);
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const startOfYear = new Date(now.getFullYear(), 0, 1);
@@ -225,7 +263,6 @@
         db.ref("absensi").once("value"),
         db.ref("siswa").once("value")
       ]);
-
       const siswaData = siswaSnap.val() || {};
       let hadir = 0, izin = 0, sakit = 0, alfa = 0;
       let rekapList = [];
@@ -269,8 +306,7 @@
             <td>${r.kelas}</td>
             <td>${r.status}</td>
             <td>${r.waktu}</td>
-          </tr>
-        `;
+          </tr>`;
       });
     }
 
@@ -286,35 +322,40 @@
       loadRekap(filter);
     }
 
-    function setStatus(status) {
-      statusDipilih = status;
-      alert("Status dipilih: " + status);
-    }
-
-    function kirimAbsensi() {
-      const idSiswa = document.getElementById("idSiswa").value.trim();
-      if (!idSiswa || !statusDipilih) return alert("Lengkapi data dulu!");
-
+    // 🔹 SCAN QR → ubah status otomatis jadi HADIR
+    async function tandaiHadir(idSiswa) {
       const now = new Date();
-      const tglString = `${now.getDate().toString().padStart(2,"0")}-${(now.getMonth()+1).toString().padStart(2,"0")}-${now.getFullYear()}`;
+      const todayStr = `${now.getDate().toString().padStart(2,"0")}-${(now.getMonth()+1).toString().padStart(2,"0")}-${now.getFullYear()}`;
+      const absensiSnap = await db.ref("absensi").once("value");
+      let targetKey = null;
 
-      db.ref("absensi").push({
-        id: idSiswa,
-        status: statusDipilih,
-        tanggal: tglString,
-        waktu: new Date().toLocaleString("id-ID")
+      absensiSnap.forEach(child => {
+        const d = child.val();
+        if (d.id === idSiswa && d.tanggal === todayStr) targetKey = child.key;
       });
 
-      alert("Absensi berhasil dikirim!");
-      kosongkanForm();
-      loadRekap(document.getElementById("filterRekap").value);
+      if (targetKey) {
+        await db.ref("absensi/" + targetKey).update({
+          status: "Hadir",
+          waktu: new Date().toLocaleString("id-ID")
+        });
+        alert(`✅ Absensi tercatat: ${idSiswa} hadir hari ini.`);
+      } else {
+        alert("⚠️ Data absensi hari ini belum dibuat. Tekan 'Mulai Absensi Hari Ini' dulu!");
+      }
+
+      loadRekap("hari");
     }
 
-    function kosongkanForm() {
+    // 🔹 tombol manual input (tanpa pilih status)
+    async function kirimAbsensi() {
+      const idSiswa = document.getElementById("idSiswa").value.trim();
+      if (!idSiswa) return alert("Masukkan ID siswa atau scan QR!");
+      tandaiHadir(idSiswa);
       document.getElementById("idSiswa").value = "";
-      statusDipilih = "";
     }
 
+    // 🔹 download CSV
     document.getElementById("btnDownload").addEventListener("click", async () => {
       const [absensiSnap, siswaSnap] = await Promise.all([
         db.ref("absensi").once("value"),
@@ -342,11 +383,15 @@
   <script>
     function onScanSuccess(decodedText) {
       document.getElementById("idSiswa").value = decodedText;
-      alert(`Scan berhasil: ID ${decodedText}`);
+      tandaiHadir(decodedText);
     }
+
     const html5QrCode = new Html5Qrcode("reader");
-    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, onScanSuccess)
-      .catch(err => console.error("Kamera error:", err));
+    html5QrCode.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: 250 },
+      onScanSuccess
+    ).catch(err => console.error("Kamera error:", err));
   </script>
 </body>
 </html>
