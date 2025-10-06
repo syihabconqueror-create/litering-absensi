@@ -53,6 +53,22 @@
       padding: 10px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background: white;
+    }
+    th, td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #ddd;
+      text-align: center;
+    }
+    th {
+      background: #1e3a8a;
+      color: white;
+    }
+    tr:hover { background-color: #f1f5f9; }
     .absensi-section { margin-top: 40px; }
     .form-card {
       border: 1px solid #ccc;
@@ -123,6 +139,20 @@
       </div>
 
       <button id="btnDownload">⬇️ Download Rekap (CSV)</button>
+
+      <table id="tabelRekap">
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Nama</th>
+            <th>Kelas</th>
+            <th>Status</th>
+            <th>Waktu</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
       <canvas id="chartKehadiran" height="100"></canvas>
     </section>
 
@@ -179,48 +209,68 @@
     }
 
     function parseTanggal(tglString) {
-      // ubah format dd-mm-yyyy → yyyy-mm-dd agar aman di Date()
       const [d, m, y] = tglString.split("-");
       return new Date(`${y}-${m}-${d}`);
     }
 
-    function loadRekap(filter = "hari") {
+    async function loadRekap(filter = "hari") {
       const now = new Date();
       const todayStr = `${now.getDate().toString().padStart(2,"0")}-${(now.getMonth()+1).toString().padStart(2,"0")}-${now.getFullYear()}`;
 
-      const startOfWeek = new Date(now);
-      startOfWeek.setDate(now.getDate() - now.getDay() + 1);
+      const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - now.getDay() + 1);
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const startOfYear = new Date(now.getFullYear(), 0, 1);
 
-      db.ref("absensi").once("value", snapshot => {
-        let hadir = 0, izin = 0, sakit = 0, alfa = 0;
+      const [absensiSnap, siswaSnap] = await Promise.all([
+        db.ref("absensi").once("value"),
+        db.ref("siswa").once("value")
+      ]);
 
-        snapshot.forEach(child => {
-          const d = child.val();
-          if (!d.tanggal) return;
+      const siswaData = siswaSnap.val() || {};
+      let hadir = 0, izin = 0, sakit = 0, alfa = 0;
+      let rekapList = [];
 
-          const tglData = parseTanggal(d.tanggal);
-          let include = false;
+      absensiSnap.forEach(child => {
+        const d = child.val();
+        if (!d.tanggal) return;
+        const tglData = parseTanggal(d.tanggal);
+        let include = false;
+        if (filter === "hari") include = d.tanggal === todayStr;
+        else if (filter === "minggu") include = tglData >= startOfWeek;
+        else if (filter === "bulan") include = tglData >= startOfMonth;
+        else if (filter === "tahun") include = tglData >= startOfYear;
 
-          if (filter === "hari") include = d.tanggal === todayStr;
-          else if (filter === "minggu") include = tglData >= startOfWeek;
-          else if (filter === "bulan") include = tglData >= startOfMonth;
-          else if (filter === "tahun") include = tglData >= startOfYear;
+        if (include) {
+          const siswa = siswaData[d.id] || {};
+          const nama = siswa.nama || d.id || "-";
+          const kelas = siswa.kelas || "-";
+          rekapList.push({ nama, kelas, status: d.status, waktu: d.waktu });
 
-          if (include) {
-            if (d.status === "Hadir") hadir++;
-            else if (d.status === "Izin") izin++;
-            else if (d.status === "Sakit") sakit++;
-            else if (d.status === "Alfa") alfa++;
-          }
-        });
+          if (d.status === "Hadir") hadir++;
+          else if (d.status === "Izin") izin++;
+          else if (d.status === "Sakit") sakit++;
+          else if (d.status === "Alfa") alfa++;
+        }
+      });
 
-        document.getElementById("hadirCount").innerText = hadir;
-        document.getElementById("izinCount").innerText = izin;
-        document.getElementById("sakitCount").innerText = sakit;
-        document.getElementById("alfaCount").innerText = alfa;
-        renderChart(hadir, izin, sakit, alfa);
+      document.getElementById("hadirCount").innerText = hadir;
+      document.getElementById("izinCount").innerText = izin;
+      document.getElementById("sakitCount").innerText = sakit;
+      document.getElementById("alfaCount").innerText = alfa;
+      renderChart(hadir, izin, sakit, alfa);
+
+      const tbody = document.querySelector("#tabelRekap tbody");
+      tbody.innerHTML = "";
+      rekapList.forEach((r, i) => {
+        tbody.innerHTML += `
+          <tr>
+            <td>${i+1}</td>
+            <td>${r.nama}</td>
+            <td>${r.kelas}</td>
+            <td>${r.status}</td>
+            <td>${r.waktu}</td>
+          </tr>
+        `;
       });
     }
 
@@ -265,19 +315,23 @@
       statusDipilih = "";
     }
 
-    document.getElementById("btnDownload").addEventListener("click", () => {
-      db.ref("absensi").once("value", snapshot => {
-        let csv = "ID Siswa,Tanggal,Status,Waktu\n";
-        snapshot.forEach(item => {
-          const d = item.val();
-          csv += `${d.id || "-"},${d.tanggal || "-"},${d.status || "-"},${d.waktu || "-"}\n`;
-        });
-        const blob = new Blob([csv], { type: "text/csv" });
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = `rekap_absensi_${new Date().toLocaleDateString("id-ID")}.csv`;
-        a.click();
+    document.getElementById("btnDownload").addEventListener("click", async () => {
+      const [absensiSnap, siswaSnap] = await Promise.all([
+        db.ref("absensi").once("value"),
+        db.ref("siswa").once("value")
+      ]);
+      const siswaData = siswaSnap.val() || {};
+      let csv = "Nama,Kelas,Status,Waktu\n";
+      absensiSnap.forEach(item => {
+        const d = item.val();
+        const siswa = siswaData[d.id] || {};
+        csv += `${siswa.nama || "-"},${siswa.kelas || "-"},${d.status || "-"},${d.waktu || "-"}\n`;
       });
+      const blob = new Blob([csv], { type: "text/csv" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `rekap_absensi_${new Date().toLocaleDateString("id-ID")}.csv`;
+      a.click();
     });
 
     window.onload = () => loadRekap("hari");
