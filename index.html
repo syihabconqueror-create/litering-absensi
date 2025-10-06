@@ -19,27 +19,22 @@
       background-color: #f8fafc;
       margin: 0;
     }
-
     header {
       background: #1e3a8a;
       color: white;
       text-align: center;
       padding: 15px;
     }
-
     main {
       padding: 20px;
       max-width: 1000px;
       margin: auto;
     }
-
-    /* --- DASHBOARD --- */
     .summary {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 15px;
     }
-
     .card {
       background: white;
       border-radius: 10px;
@@ -47,12 +42,10 @@
       padding: 15px;
       text-align: center;
     }
-
     .hadir { color: #16a34a; }
     .izin { color: #eab308; }
     .sakit { color: #2563eb; }
     .alfa { color: #dc2626; }
-
     canvas {
       background: white;
       border-radius: 10px;
@@ -60,8 +53,6 @@
       padding: 10px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
-
-    /* --- ABSENSI --- */
     .absensi-section { margin-top: 40px; }
     .form-card {
       border: 1px solid #ccc;
@@ -72,14 +63,12 @@
       max-width: 500px;
       background: white;
     }
-
     input, button {
       margin: 5px;
       padding: 10px;
       width: 90%;
       max-width: 400px;
     }
-
     button {
       cursor: pointer;
       border: none;
@@ -87,7 +76,6 @@
       background: #2563eb;
       color: white;
     }
-
     .status-btn {
       width: auto;
       padding: 10px 20px;
@@ -95,14 +83,13 @@
       background: #e0e7ff;
       color: #2563eb;
     }
-
     .status-btn:hover { background: #c7d2fe; }
   </style>
 </head>
 
 <body>
 
-  <!-- 🔹 NAVBAR (otomatis dari file navbar.html) -->
+  <!-- 🔹 NAVBAR -->
   <div id="navbar"></div>
   <script>
     fetch("navbar.html")
@@ -144,11 +131,8 @@
       <h2>Form Absensi Manual / QR</h2>
       <div class="form-card">
         <h3>Scan QR Siswa</h3>
-        <p>Gunakan kamera HP/laptop atau isi manual di bawah:</p>
         <div id="reader" style="width: 300px; margin: 20px auto;"></div>
-
         <input type="text" id="idSiswa" placeholder="ID Siswa (otomatis jika scan QR)">
-
         <h4>Pilih Status</h4>
         <button class="status-btn" onclick="setStatus('Hadir')">Hadir</button>
         <button class="status-btn" onclick="setStatus('Izin')">Izin</button>
@@ -194,9 +178,16 @@
       });
     }
 
+    function parseTanggal(tglString) {
+      // ubah format dd-mm-yyyy → yyyy-mm-dd agar aman di Date()
+      const [d, m, y] = tglString.split("-");
+      return new Date(`${y}-${m}-${d}`);
+    }
+
     function loadRekap(filter = "hari") {
       const now = new Date();
-      const today = now.toLocaleDateString("id-ID");
+      const todayStr = `${now.getDate().toString().padStart(2,"0")}-${(now.getMonth()+1).toString().padStart(2,"0")}-${now.getFullYear()}`;
+
       const startOfWeek = new Date(now);
       startOfWeek.setDate(now.getDate() - now.getDay() + 1);
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -208,10 +199,11 @@
         snapshot.forEach(child => {
           const d = child.val();
           if (!d.tanggal) return;
-          const tglData = new Date(d.tanggal.split("-").reverse().join("-"));
+
+          const tglData = parseTanggal(d.tanggal);
           let include = false;
 
-          if (filter === "hari") include = d.tanggal === today;
+          if (filter === "hari") include = d.tanggal === todayStr;
           else if (filter === "minggu") include = tglData >= startOfWeek;
           else if (filter === "bulan") include = tglData >= startOfMonth;
           else if (filter === "tahun") include = tglData >= startOfYear;
@@ -234,12 +226,13 @@
 
     function updateRekap() {
       const filter = document.getElementById("filterRekap").value;
-      let title = "Rekap Kehadiran ";
-      if (filter === "hari") title += "Hari Ini";
-      else if (filter === "minggu") title += "Minggu Ini";
-      else if (filter === "bulan") title += "Bulan Ini";
-      else if (filter === "tahun") title += "Tahun Ini";
-      document.getElementById("rekapTitle").innerText = title;
+      const titleMap = {
+        hari: "Rekap Kehadiran Hari Ini",
+        minggu: "Rekap Kehadiran Minggu Ini",
+        bulan: "Rekap Kehadiran Bulan Ini",
+        tahun: "Rekap Kehadiran Tahun Ini"
+      };
+      document.getElementById("rekapTitle").innerText = titleMap[filter];
       loadRekap(filter);
     }
 
@@ -252,8 +245,8 @@
       const idSiswa = document.getElementById("idSiswa").value.trim();
       if (!idSiswa || !statusDipilih) return alert("Lengkapi data dulu!");
 
-      const today = new Date();
-      const tglString = `${today.getDate().toString().padStart(2,"0")}-${(today.getMonth()+1).toString().padStart(2,"0")}-${today.getFullYear()}`;
+      const now = new Date();
+      const tglString = `${now.getDate().toString().padStart(2,"0")}-${(now.getMonth()+1).toString().padStart(2,"0")}-${now.getFullYear()}`;
 
       db.ref("absensi").push({
         id: idSiswa,
@@ -297,7 +290,6 @@
       document.getElementById("idSiswa").value = decodedText;
       alert(`Scan berhasil: ID ${decodedText}`);
     }
-
     const html5QrCode = new Html5Qrcode("reader");
     html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, onScanSuccess)
       .catch(err => console.error("Kamera error:", err));
