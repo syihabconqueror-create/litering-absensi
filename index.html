@@ -1,280 +1,352 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LITERING — Absensi Harian</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LITERING — Absensi & Dashboard</title>
+
+  <!-- STYLE -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Firebase & Chart.js -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f6f8;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f8fafc;
       margin: 0;
-      padding: 0;
     }
-
-    .navbar {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      background: #fff;
-      padding: 10px 20px;
-      border-bottom: 3px solid #2c3e50;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-
-    .logo {
-      width: 60px;
-      height: 60px;
-      border-radius: 10px;
-    }
-
-    .judul {
-      font-size: 1.4em;
-      font-weight: bold;
-      color: #2c3e50;
-    }
-
     header {
-      background-color: #2c3e50;
+      background: #1e3a8a;
       color: white;
+      text-align: center;
+      padding: 15px;
+    }
+    main {
+      padding: 20px;
+      max-width: 1000px;
+      margin: auto;
+    }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 15px;
+    }
+    .card {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
       padding: 15px;
       text-align: center;
     }
-
-    main {
-      padding: 20px;
-      max-width: 900px;
-      margin: auto;
+    .hadir { color: #16a34a; }
+    .izin { color: #eab308; }
+    .sakit { color: #2563eb; }
+    .alfa { color: #dc2626; }
+    canvas {
+      background: white;
+      border-radius: 10px;
+      margin-top: 25px;
+      padding: 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
-
-    input, button {
-      padding: 8px;
-      font-size: 14px;
-    }
-
-    button {
-      background-color: #3498db;
-      color: white;
-      border: none;
-      cursor: pointer;
-      border-radius: 5px;
-    }
-
-    button:hover {
-      background-color: #2980b9;
-    }
-
     table {
       width: 100%;
       border-collapse: collapse;
       margin-top: 20px;
       background: white;
-      border-radius: 8px;
-      overflow: hidden;
     }
-
     th, td {
-      border: 1px solid #ddd;
-      padding: 10px;
+      padding: 8px 10px;
+      border-bottom: 1px solid #ddd;
       text-align: center;
     }
-
     th {
-      background-color: #2c3e50;
+      background: #1e3a8a;
       color: white;
     }
-
-    tr:nth-child(even) {
-      background-color: #f2f2f2;
+    tr:hover { background-color: #f1f5f9; }
+    .absensi-section { margin-top: 40px; }
+    .form-card {
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      padding: 20px;
+      margin: 20px auto;
+      width: 90%;
+      max-width: 500px;
+      background: white;
     }
-
-    .controls {
-      margin-top: 15px;
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      align-items: center;
+    input, button {
+      margin: 5px;
+      padding: 10px;
+      width: 90%;
+      max-width: 400px;
     }
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+      background: #2563eb;
+      color: white;
+    }
+    .status-btn {
+      width: auto;
+      padding: 10px 20px;
+      margin: 5px;
+      background: #e0e7ff;
+      color: #2563eb;
+    }
+    .status-btn:hover { background: #c7d2fe; }
   </style>
 </head>
 
 <body>
 
-  <div class="navbar">
-    <img src="logo.png" alt="Logo" class="logo">
-    <span class="judul">Al Ishlah Computer Learning</span>
-  </div>
+  <!-- 🔹 NAVBAR -->
+  <div id="navbar"></div>
+  <script>
+    fetch("navbar.html")
+      .then(res => res.text())
+      .then(html => document.getElementById("navbar").innerHTML = html);
+  </script>
 
   <header>
-    <h1>Absensi Harian</h1>
+    <h1>LITERING — Absensi & Dashboard</h1>
+    <p>Les Komputer MTs Al Ishlah Panambangan</p>
   </header>
 
   <main>
-    <div class="controls">
-      <button id="btnMulai">Mulai Absensi Hari Ini</button>
-      <input type="text" id="inputId" placeholder="Scan QR / Masukkan ID Siswa">
-      <button id="btnAbsen">Absen</button>
-      <button id="btnDownload">Download CSV</button>
-    </div>
+    <!-- DASHBOARD -->
+    <section id="dashboard">
+      <div style="display: flex; align-items: center; gap: 10px; justify-content: center;">
+        <h3 id="rekapTitle">Rekap Kehadiran Hari Ini</h3>
+        <select id="filterRekap" onchange="updateRekap()">
+          <option value="hari">Hari Ini</option>
+          <option value="minggu">Minggu Ini</option>
+          <option value="bulan">Bulan Ini</option>
+          <option value="tahun">Tahun Ini</option>
+        </select>
+      </div>
 
-    <table id="tabelAbsensi">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Nama</th>
-          <th>Kelas</th>
-          <th>Status</th>
-          <th>Waktu</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+      <div class="summary">
+        <div class="card"><h3>Hadir</h3><h2 id="hadirCount" class="hadir">0</h2></div>
+        <div class="card"><h3>Izin</h3><h2 id="izinCount" class="izin">0</h2></div>
+        <div class="card"><h3>Sakit</h3><h2 id="sakitCount" class="sakit">0</h2></div>
+        <div class="card"><h3>Alfa</h3><h2 id="alfaCount" class="alfa">0</h2></div>
+      </div>
+
+      <button id="btnDownload">⬇️ Download Rekap (CSV)</button>
+
+      <table id="tabelRekap">
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Nama</th>
+            <th>Kelas</th>
+            <th>Status</th>
+            <th>Waktu</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <canvas id="chartKehadiran" height="100"></canvas>
+    </section>
+
+    <!-- FORM ABSENSI -->
+    <section class="absensi-section">
+      <h2>Form Absensi Manual / QR</h2>
+      <div class="form-card">
+        <h3>Scan QR Siswa</h3>
+        <div id="reader" style="width: 300px; margin: 20px auto;"></div>
+        <input type="text" id="idSiswa" placeholder="ID Siswa (otomatis jika scan QR)">
+        <h4>Pilih Status</h4>
+        <button class="status-btn" onclick="setStatus('Hadir')">Hadir</button>
+        <button class="status-btn" onclick="setStatus('Izin')">Izin</button>
+        <button class="status-btn" onclick="setStatus('Sakit')">Sakit</button>
+        <button class="status-btn" onclick="setStatus('Alfa')">Alfa</button>
+        <br>
+        <button onclick="kirimAbsensi()">Kirim Absensi</button>
+        <button onclick="kosongkanForm()">Kosongkan</button>
+      </div>
+    </section>
   </main>
 
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js"></script>
-
+  <!-- 🔥 Firebase Script -->
   <script>
-    // Konfigurasi Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyDGVM5T-us2R19M-zLmVbMh-NUgjg3Af68",
       authDomain: "litering-absensi.firebaseapp.com",
       databaseURL: "https://litering-absensi-default-rtdb.asia-southeast1.firebasedatabase.app",
       projectId: "litering-absensi",
-      storageBucket: "litering-absensi.appspot.com",
-      messagingSenderId: "809697579840",
-      appId: "1:809697579840:web:db7a4d55bc1a69ab03c14a"
+      storageBucket: "litering-absensi.firebasestorage.app",
+      messagingSenderId: "529191002867",
+      appId: "1:529191002867:web:d751dddb59e230f08acd86"
     };
-
-    const app = firebase.initializeApp(firebaseConfig);
+    firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    const tabel = document.getElementById('tabelAbsensi').querySelector('tbody');
-    const btnMulai = document.getElementById('btnMulai');
-    const btnAbsen = document.getElementById('btnAbsen');
-    const btnDownload = document.getElementById('btnDownload');
-    const inputId = document.getElementById('inputId');
+    const ctx = document.getElementById("chartKehadiran").getContext("2d");
+    let chart;
+    let statusDipilih = "";
 
-    // Fungsi bantu
-    function getHariIni() {
-      const hari = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
-      return hari[new Date().getDay()];
+    function renderChart(hadir, izin, sakit, alfa) {
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: "doughnut",
+        data: {
+          labels: ["Hadir", "Izin", "Sakit", "Alfa"],
+          datasets: [{
+            data: [hadir, izin, sakit, alfa],
+            backgroundColor: ["#16a34a", "#eab308", "#2563eb", "#dc2626"]
+          }]
+        },
+        options: { plugins: { legend: { position: "bottom" } } }
+      });
     }
 
-    function getTanggal() {
-      const t = new Date();
-      return t.toLocaleDateString('id-ID').replaceAll('/', '-');
+    function parseTanggal(tglString) {
+      const [d, m, y] = tglString.split("-");
+      return new Date(`${y}-${m}-${d}`);
     }
 
-    // 🔹 Mulai absensi: set semua siswa di kelas sesuai hari jadi Alfa
-    btnMulai.onclick = async () => {
-      const hari = getHariIni();
-      const tanggal = getTanggal();
+    async function loadRekap(filter = "hari") {
+      const now = new Date();
+      const todayStr = `${now.getDate().toString().padStart(2,"0")}-${(now.getMonth()+1).toString().padStart(2,"0")}-${now.getFullYear()}`;
 
-      if (hari === "Minggu") {
-        alert("Hari Minggu libur 😄");
-        return;
-      }
+      const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - now.getDay() + 1);
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
 
-      const siswaSnap = await db.ref('siswa').once('value');
-      const dataSiswa = siswaSnap.val();
+      const [absensiSnap, siswaSnap] = await Promise.all([
+        db.ref("absensi").once("value"),
+        db.ref("siswa").once("value")
+      ]);
 
-      for (let id in dataSiswa) {
-        if (dataSiswa[id].kelas === hari) {
-          await db.ref(`absensi/${tanggal}/${id}`).set({
-            id: id,
-            nama: dataSiswa[id].nama,
-            kelas: dataSiswa[id].kelas,
-            status: "Alfa",
-            tanggal: tanggal,
-            waktu: "-"
-          });
+      const siswaData = siswaSnap.val() || {};
+      let hadir = 0, izin = 0, sakit = 0, alfa = 0;
+      let rekapList = [];
+
+      absensiSnap.forEach(child => {
+        const d = child.val();
+        if (!d.tanggal) return;
+        const tglData = parseTanggal(d.tanggal);
+        let include = false;
+        if (filter === "hari") include = d.tanggal === todayStr;
+        else if (filter === "minggu") include = tglData >= startOfWeek;
+        else if (filter === "bulan") include = tglData >= startOfMonth;
+        else if (filter === "tahun") include = tglData >= startOfYear;
+
+        if (include) {
+          const siswa = siswaData[d.id] || {};
+          const nama = siswa.nama || d.id || "-";
+          const kelas = siswa.kelas || "-";
+          rekapList.push({ nama, kelas, status: d.status, waktu: d.waktu });
+
+          if (d.status === "Hadir") hadir++;
+          else if (d.status === "Izin") izin++;
+          else if (d.status === "Sakit") sakit++;
+          else if (d.status === "Alfa") alfa++;
         }
-      }
-      alert(`Absensi ${hari} (${tanggal}) dimulai! Semua siswa ditandai Alfa.`);
-      loadRekap();
-    };
-
-    // 🔹 Absen: ubah status jadi Hadir
-    btnAbsen.onclick = async () => {
-      const id = inputId.value.trim();
-      if (!id) return alert("Masukkan ID siswa!");
-
-      const tanggal = getTanggal();
-      const siswaRef = db.ref('siswa/' + id);
-      const siswaSnap = await siswaRef.get();
-
-      if (!siswaSnap.exists()) {
-        alert("ID siswa tidak ditemukan!");
-        return;
-      }
-
-      const data = siswaSnap.val();
-      const hari = getHariIni();
-
-      if (data.kelas !== hari) {
-        alert(`Siswa ini tidak ada jadwal pada hari ${hari}`);
-        return;
-      }
-
-      const waktu = new Date().toLocaleString('id-ID');
-      await db.ref(`absensi/${tanggal}/${id}`).update({
-        status: "Hadir",
-        waktu: waktu
       });
 
-      inputId.value = "";
-      loadRekap();
-    };
+      document.getElementById("hadirCount").innerText = hadir;
+      document.getElementById("izinCount").innerText = izin;
+      document.getElementById("sakitCount").innerText = sakit;
+      document.getElementById("alfaCount").innerText = alfa;
+      renderChart(hadir, izin, sakit, alfa);
 
-    // 🔹 Tampilkan rekap di tabel
-    async function loadRekap() {
-      const tanggal = getTanggal();
-      const snap = await db.ref('absensi/' + tanggal).once('value');
-      const data = snap.val();
-      tabel.innerHTML = "";
-      if (!data) return;
-
-      let no = 1;
-      for (let id in data) {
-        const d = data[id];
-        const row = `<tr>
-          <td>${no++}</td>
-          <td>${d.nama || "-"}</td>
-          <td>${d.kelas || "-"}</td>
-          <td>${d.status}</td>
-          <td>${d.waktu}</td>
-        </tr>`;
-        tabel.innerHTML += row;
-      }
+      const tbody = document.querySelector("#tabelRekap tbody");
+      tbody.innerHTML = "";
+      rekapList.forEach((r, i) => {
+        tbody.innerHTML += `
+          <tr>
+            <td>${i+1}</td>
+            <td>${r.nama}</td>
+            <td>${r.kelas}</td>
+            <td>${r.status}</td>
+            <td>${r.waktu}</td>
+          </tr>
+        `;
+      });
     }
 
-    // 🔹 Download CSV
-    btnDownload.onclick = async () => {
-      const tanggal = getTanggal();
-      const snap = await db.ref('absensi/' + tanggal).once('value');
-      const data = snap.val();
-      if (!data) return alert("Belum ada data absensi hari ini.");
+    function updateRekap() {
+      const filter = document.getElementById("filterRekap").value;
+      const titleMap = {
+        hari: "Rekap Kehadiran Hari Ini",
+        minggu: "Rekap Kehadiran Minggu Ini",
+        bulan: "Rekap Kehadiran Bulan Ini",
+        tahun: "Rekap Kehadiran Tahun Ini"
+      };
+      document.getElementById("rekapTitle").innerText = titleMap[filter];
+      loadRekap(filter);
+    }
 
+    function setStatus(status) {
+      statusDipilih = status;
+      alert("Status dipilih: " + status);
+    }
+
+    function kirimAbsensi() {
+      const idSiswa = document.getElementById("idSiswa").value.trim();
+      if (!idSiswa || !statusDipilih) return alert("Lengkapi data dulu!");
+
+      const now = new Date();
+      const tglString = `${now.getDate().toString().padStart(2,"0")}-${(now.getMonth()+1).toString().padStart(2,"0")}-${now.getFullYear()}`;
+
+      db.ref("absensi").push({
+        id: idSiswa,
+        status: statusDipilih,
+        tanggal: tglString,
+        waktu: new Date().toLocaleString("id-ID")
+      });
+
+      alert("Absensi berhasil dikirim!");
+      kosongkanForm();
+      loadRekap(document.getElementById("filterRekap").value);
+    }
+
+    function kosongkanForm() {
+      document.getElementById("idSiswa").value = "";
+      statusDipilih = "";
+    }
+
+    document.getElementById("btnDownload").addEventListener("click", async () => {
+      const [absensiSnap, siswaSnap] = await Promise.all([
+        db.ref("absensi").once("value"),
+        db.ref("siswa").once("value")
+      ]);
+      const siswaData = siswaSnap.val() || {};
       let csv = "Nama,Kelas,Status,Waktu\n";
-      for (let id in data) {
-        const d = data[id];
-        csv += `${d.nama},${d.kelas},${d.status},${d.waktu}\n`;
-      }
-
+      absensiSnap.forEach(item => {
+        const d = item.val();
+        const siswa = siswaData[d.id] || {};
+        csv += `${siswa.nama || "-"},${siswa.kelas || "-"},${d.status || "-"},${d.waktu || "-"}\n`;
+      });
       const blob = new Blob([csv], { type: "text/csv" });
-      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
-      a.download = `Rekap-${tanggal}.csv`;
+      a.href = URL.createObjectURL(blob);
+      a.download = `rekap_absensi_${new Date().toLocaleDateString("id-ID")}.csv`;
       a.click();
-      URL.revokeObjectURL(url);
-    };
+    });
 
-    // Load otomatis
-    loadRekap();
+    window.onload = () => loadRekap("hari");
+  </script>
+
+  <!-- 📱 QR Scanner -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script>
+    function onScanSuccess(decodedText) {
+      document.getElementById("idSiswa").value = decodedText;
+      alert(`Scan berhasil: ID ${decodedText}`);
+    }
+    const html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, onScanSuccess)
+      .catch(err => console.error("Kamera error:", err));
   </script>
 </body>
 </html>
