@@ -137,83 +137,87 @@
 
   <!-- ✅ Firebase v9+ Modular -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-    import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+  import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyDGVM5T-us2R19M-zLmVbMh-NUgjg3Af68",
-      authDomain: "litering-absensi.firebaseapp.com",
-      databaseURL: "https://litering-absensi-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "litering-absensi",
-      storageBucket: "litering-absensi.firebasestorage.app",
-      messagingSenderId: "529191002867",
-      appId: "1:529191002867:web:d751dddb59e230f08acd86"
-    };
+  const firebaseConfig = {
+    apiKey: "AIzaSyDGVM5T-us2R19M-zLmVbMh-NUgjg3Af68",
+    authDomain: "litering-absensi.firebaseapp.com",
+    databaseURL: "https://litering-absensi-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "litering-absensi",
+    storageBucket: "litering-absensi.firebasestorage.app",
+    messagingSenderId: "529191002867",
+    appId: "1:529191002867:web:d751dddb59e230f08acd86"
+  };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
 
-    const tabelBody = document.querySelector("#tabelAbsensi tbody");
+  const tabelBody = document.querySelector("#tabelAbsensi tbody");
 
-    // Fungsi ambil rekap absensi
-    async function loadRekap() {
-      const tglFilter = document.getElementById("filterTanggal").value;
-      const kelasFilter = document.getElementById("filterKelas").value.trim().toLowerCase();
+  async function loadRekap() {
+    const tglFilter = document.getElementById("filterTanggal").value;
+    const kelasFilter = document.getElementById("filterKelas").value.trim().toLowerCase();
 
-      const absensiSnap = await get(ref(db, "absensi"));
-      const siswaSnap = await get(ref(db, "siswa"));
+    const absensiSnap = await get(ref(db, "absensi"));
+    const siswaSnap = await get(ref(db, "siswa"));
 
-      const siswaData = {};
-      siswaSnap.forEach(s => {
-        const d = s.val();
-        siswaData[d.id] = { nama: d.nama, kelas: d.kelas };
-      });
+    // 🟢 Buat dictionary siswa: { "276801250006": {nama: "...", kelas: "..."} }
+    const siswaData = {};
+    siswaSnap.forEach(child => {
+      const key = child.key;
+      const s = child.val();
+      const id = s.id || key;
+      siswaData[id] = { nama: s.nama, kelas: s.kelas };
+    });
 
-      let no = 1;
-      tabelBody.innerHTML = "";
-      const hasil = [];
+    tabelBody.innerHTML = "";
+    let no = 1;
+    const hasil = [];
 
-      absensiSnap.forEach(a => {
-        const d = a.val();
-        const siswa = siswaData[d.id] || {};
-        if (!d.tanggal) return;
+    absensiSnap.forEach(a => {
+      const d = a.val();
+      const siswa = siswaData[d.id] || {};
+      if (!d.tanggal) return;
 
-        // filter tanggal & kelas
-        const cocokTanggal = !tglFilter || d.tanggal === formatTanggal(tglFilter);
-        const cocokKelas = !kelasFilter || (siswa.kelas && siswa.kelas.toLowerCase().includes(kelasFilter));
+      const cocokTanggal = !tglFilter || d.tanggal === formatTanggal(tglFilter);
+      const cocokKelas = !kelasFilter || (siswa.kelas && siswa.kelas.toLowerCase().includes(kelasFilter));
 
-        if (cocokTanggal && cocokKelas) {
-          hasil.push({
-            no: no++,
-            tanggal: d.tanggal,
-            waktu: d.waktu || "-",
-            nama: siswa.nama || d.id,
-            kelas: siswa.kelas || "-",
-            status: d.status
-          });
-        }
-      });
+      if (cocokTanggal && cocokKelas) {
+        hasil.push({
+          no: no++,
+          tanggal: d.tanggal,
+          waktu: d.waktu || "-",
+          nama: siswa.nama || d.id,
+          kelas: siswa.kelas || "-",
+          status: d.status || "-"
+        });
+      }
+    });
 
-      hasil.sort((a,b) => new Date(b.tanggal) - new Date(a.tanggal));
-      hasil.forEach(row => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${row.no}</td>
-          <td>${row.tanggal}</td>
-          <td>${row.waktu}</td>
-          <td>${row.nama}</td>
-          <td>${row.kelas}</td>
-          <td>${row.status}</td>
-        `;
-        tabelBody.appendChild(tr);
-      });
-    }
+    hasil.sort((a,b) => new Date(b.tanggal) - new Date(a.tanggal));
+    hasil.forEach(row => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${row.no}</td>
+        <td>${row.tanggal}</td>
+        <td>${row.waktu}</td>
+        <td>${row.nama}</td>
+        <td>${row.kelas}</td>
+        <td>${row.status}</td>
+      `;
+      tabelBody.appendChild(tr);
+    });
+  }
 
-    function formatTanggal(inputDate) {
-      // ubah yyyy-mm-dd → dd-mm-yyyy
-      const [y, m, d] = inputDate.split("-");
-      return `${d}-${m}-${y}`;
-    }
+  function formatTanggal(inputDate) {
+    const [y, m, d] = inputDate.split("-");
+    return `${d}-${m}-${y}`;
+  }
+
+  document.getElementById("btnLoad").addEventListener("click", loadRekap);
+  window.onload = loadRekap;
+</script>
 
     // Download CSV
     document.getElementById("btnDownload").addEventListener("click", async () => {
@@ -235,3 +239,4 @@
   </script>
 </body>
 </html>
+
