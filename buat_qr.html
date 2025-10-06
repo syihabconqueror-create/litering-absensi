@@ -12,6 +12,10 @@
   <!-- JsBarcode -->
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 
+  <!-- JSZip untuk download semua barcode -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
@@ -29,7 +33,7 @@
       box-shadow: 0 2px 6px rgba(0,0,0,0.1);
       margin: 20px auto;
       padding: 15px;
-      max-width: 400px;
+      max-width: 420px;
     }
     #barcode {
       margin-top: 20px;
@@ -44,7 +48,7 @@
       color: white;
       border: none;
       padding: 10px 20px;
-      margin-top: 15px;
+      margin: 8px;
       border-radius: 8px;
       cursor: pointer;
     }
@@ -62,7 +66,10 @@
     <select id="siswaSelect">
       <option value="">-- Pilih Siswa --</option>
     </select>
+    <br>
     <button onclick="generateBarcode()">Buat Barcode</button>
+    <button id="downloadBtn" style="display:none;" onclick="downloadBarcode()">Download Barcode</button>
+    <button onclick="generateAllBarcodes()">Download Semua Barcode</button>
 
     <svg id="barcode"></svg>
     <p id="info"></p>
@@ -84,6 +91,7 @@
     const db = firebase.database();
 
     const siswaSelect = document.getElementById("siswaSelect");
+    let siswaList = [];
 
     // 🔹 Ambil daftar siswa dari Firebase
     db.ref("siswa").once("value").then(snapshot => {
@@ -94,10 +102,11 @@
         option.value = `${id}|${s.nama}|${s.kelas}`;
         option.textContent = `${s.nama} (${s.kelas})`;
         siswaSelect.appendChild(option);
+        siswaList.push({ id, nama: s.nama, kelas: s.kelas });
       });
     });
 
-    // 🔹 Generate Barcode (Code 39)
+    // 🔹 Generate Barcode satu siswa
     function generateBarcode() {
       const val = siswaSelect.value;
       if (!val) return alert("Pilih siswa dulu!");
@@ -118,6 +127,76 @@
       });
 
       document.getElementById("info").innerText = `Barcode untuk ${nama} (${kelas}) — ID: ${id}`;
+      document.getElementById("downloadBtn").style.display = "inline-block";
+    }
+
+    // 🔹 Download Barcode yang sedang tampil
+    function downloadBarcode() {
+      const svg = document.getElementById("barcode");
+      const serializer = new XMLSerializer();
+      const svgData = serializer.serializeToString(svg);
+
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      const img = new Image();
+      const val = siswaSelect.value;
+      const [id, nama] = val.split("|");
+
+      img.onload = function() {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        const pngFile = canvas.toDataURL("image/png");
+        const a = document.createElement("a");
+        a.href = pngFile;
+        a.download = `Barcode_${nama}_${id}.png`;
+        a.click();
+      };
+      img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+    }
+
+    // 🔹 Generate dan Download Semua Barcode
+    async function generateAllBarcodes() {
+      if (siswaList.length === 0) return alert("Data siswa belum dimuat!");
+
+      const zip = new JSZip();
+
+      for (const s of siswaList) {
+        if (!s.id || s.id.length !== 12) continue;
+
+        const svg = document.createElement("svg");
+        JsBarcode(svg, s.id, {
+          format: "CODE39",
+          lineColor: "#000",
+          width: 2,
+          height: 80,
+          displayValue: true,
+          fontSize: 16
+        });
+
+        const serializer = new XMLSerializer();
+        const svgData = serializer.serializeToString(svg);
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const img = new Image();
+
+        await new Promise(resolve => {
+          img.onload = function() {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+            const pngData = canvas.toDataURL("image/png").split(",")[1];
+            zip.file(`${s.nama}_${s.id}.png`, pngData, { base64: true });
+            resolve();
+          };
+          img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+        });
+      }
+
+      // 💾 Download ZIP
+      zip.generateAsync({ type: "blob" }).then(content => {
+        saveAs(content, "Barcode_Siswa.zip");
+      });
     }
   </script>
 </body>
