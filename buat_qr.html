@@ -3,10 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Buat QR Siswa - Litering</title>
+  <title>Buat Barcode Siswa - Litering</title>
+
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
+
+  <!-- JsBarcode -->
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
@@ -26,7 +31,7 @@
       padding: 15px;
       max-width: 400px;
     }
-    #qrcode {
+    #barcode {
       margin-top: 20px;
     }
     select {
@@ -50,20 +55,21 @@
 </head>
 <body>
 
-  <h1>📱 Buat QR Code Siswa</h1>
-  <p>Pilih siswa untuk membuat QR Code dari data Firebase</p>
+  <h1>🏷️ Buat Barcode Siswa</h1>
+  <p>Pilih siswa untuk membuat Barcode (Code 39) dari data Firebase</p>
 
   <div class="card">
     <select id="siswaSelect">
       <option value="">-- Pilih Siswa --</option>
     </select>
-    <button onclick="generateQR()">Buat QR</button>
+    <button onclick="generateBarcode()">Buat Barcode</button>
 
-    <div id="qrcode"></div>
+    <svg id="barcode"></svg>
     <p id="info"></p>
   </div>
 
   <script>
+    // 🔹 Konfigurasi Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyDGVM5T-us2R19M-zLmVbMh-NUgjg3Af68",
       authDomain: "litering-absensi.firebaseapp.com",
@@ -79,7 +85,7 @@
 
     const siswaSelect = document.getElementById("siswaSelect");
 
-    // Ambil data siswa dari Firebase
+    // 🔹 Ambil daftar siswa dari Firebase
     db.ref("siswa").once("value").then(snapshot => {
       snapshot.forEach(child => {
         const s = child.val();
@@ -91,18 +97,27 @@
       });
     });
 
-    function generateQR() {
+    // 🔹 Generate Barcode (Code 39)
+    function generateBarcode() {
       const val = siswaSelect.value;
       if (!val) return alert("Pilih siswa dulu!");
 
       const [id, nama, kelas] = val.split("|");
-      document.getElementById("qrcode").innerHTML = "";
-      new QRCode(document.getElementById("qrcode"), {
-        text: `${id}|${nama}|${kelas}`,
-        width: 200,
-        height: 200
+      if (id.length !== 12) {
+        alert("ID harus 12 digit agar sesuai format Code 39!");
+        return;
+      }
+
+      JsBarcode("#barcode", id, {
+        format: "CODE39",
+        lineColor: "#000",
+        width: 2,
+        height: 80,
+        displayValue: true,
+        fontSize: 16
       });
-      document.getElementById("info").innerText = `QR untuk ${nama} (${kelas}) — ID: ${id}`;
+
+      document.getElementById("info").innerText = `Barcode untuk ${nama} (${kelas}) — ID: ${id}`;
     }
   </script>
 </body>
