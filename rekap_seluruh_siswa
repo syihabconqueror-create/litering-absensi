@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rekap Absensi — Analitik</title>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f9fafb;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: #1e3a8a;
+      color: white;
+      text-align: center;
+      padding: 15px;
+    }
+    main {
+      max-width: 1100px;
+      margin: 30px auto;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+    }
+    select, button {
+      padding: 8px 12px;
+      margin: 5px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover { background: #1d4ed8; }
+    canvas { margin-top: 30px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 25px;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #ddd;
+      text-align: center;
+    }
+    th { background: #1e3a8a; color: white; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📊 Rekap Absensi Siswa</h1>
+  </header>
+
+  <main>
+    <div style="text-align:center;">
+      <label for="filter">Tampilkan berdasarkan:</label>
+      <select id="filter">
+        <option value="minggu">Mingguan</option>
+        <option value="bulan">Bulanan</option>
+        <option value="tahun">Tahunan</option>
+      </select>
+      <button id="btnTampilkan">Tampilkan</button>
+      <button id="btnDownload">⬇️ Download CSV</button>
+    </div>
+
+    <canvas id="chartRekap" height="120"></canvas>
+
+    <table id="tabelRekap">
+      <thead>
+        <tr>
+          <th>No</th>
+          <th>Nama</th>
+          <th>Kelas</th>
+          <th>Hadir</th>
+          <th>Izin</th>
+          <th>Sakit</th>
+          <th>Alfa</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </main>
+
+  <script>
+    // 🔥 Firebase Setup
+    const firebaseConfig = {
+      apiKey: "AIzaSyDGVM5T-us2R19M-zLmVbMh-NUgjg3Af68",
+      authDomain: "litering-absensi.firebaseapp.com",
+      databaseURL: "https://litering-absensi-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "litering-absensi",
+      storageBucket: "litering-absensi.firebasestorage.app",
+      messagingSenderId: "529191002867",
+      appId: "1:529191002867:web:d751dddb59e230f08acd86"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const ctx = document.getElementById("chartRekap");
+    let chartInstance;
+
+    document.getElementById("btnTampilkan").addEventListener("click", tampilkanRekap);
+    document.getElementById("btnDownload").addEventListener("click", downloadCSV);
+
+    async function tampilkanRekap() {
+      const filter = document.getElementById("filter").value;
+      const now = new Date();
+      const absensiSnap = await db.ref("absensi").once("value");
+      const siswaSnap = await db.ref("siswa").once("value");
+      const absensiData = absensiSnap.val() || {};
+      const siswaData = siswaSnap.val() || {};
+
+      const startDate = new Date();
+      if (filter === "minggu") startDate.setDate(now.getDate() - 7);
+      else if (filter === "bulan") startDate.setMonth(now.getMonth() - 1);
+      else if (filter === "tahun") startDate.setFullYear(now.getFullYear() - 1);
+
+      const hasil = {};
+
+      for (const key in absensiData) {
+        const a = absensiData[key];
+        const s = siswaData[a.id];
+        if (!s) continue;
+
+        const [d,m,y] = a.tanggal.split("-").map(Number);
+        const tgl = new Date(y, m-1, d);
+        if (tgl < startDate) continue;
+
+        if (!hasil[a.id]) hasil[a.id] = { nama: s.nama, kelas: s.kelas, Hadir: 0, Izin: 0, Sakit: 0, Alfa: 0 };
+        hasil[a.id][a.status] = (hasil[a.id][a.status] || 0) + 1;
+      }
+
+      const tbody = document.querySelector("#tabelRekap tbody");
+      tbody.innerHTML = "";
+      let i = 1;
+
+      const statusTotal = { Hadir: 0, Izin: 0, Sakit: 0, Alfa: 0 };
+
+      for (const id in hasil) {
+        const r = hasil[id];
+        tbody.innerHTML += `
+          <tr>
+            <td>${i++}</td>
+            <td>${r.nama}</td>
+            <td>${r.kelas}</td>
+            <td>${r.Hadir}</td>
+            <td>${r.Izin}</td>
+            <td>${r.Sakit}</td>
+            <td>${r.Alfa}</td>
+          </tr>`;
+        statusTotal.Hadir += r.Hadir;
+        statusTotal.Izin += r.Izin;
+        statusTotal.Sakit += r.Sakit;
+        statusTotal.Alfa += r.Alfa;
+      }
+
+      // 🔹 Update Chart
+      if (chartInstance) chartInstance.destroy();
+      chartInstance = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: ["Hadir", "Izin", "Sakit", "Alfa"],
+          datasets: [{
+            label: `Jumlah Kehadiran (${filter})`,
+            data: [statusTotal.Hadir, statusTotal.Izin, statusTotal.Sakit, statusTotal.Alfa],
+            backgroundColor: ["#22c55e", "#fbbf24", "#f97316", "#ef4444"]
+          }]
+        },
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+      });
+    }
+
+    async function downloadCSV() {
+      const rows = document.querySelectorAll("#tabelRekap tr");
+      let csv = "Nama,Kelas,Hadir,Izin,Sakit,Alfa\n";
+      rows.forEach((row, idx) => {
+        if (idx === 0) return; // skip header
+        const cols = row.querySelectorAll("td");
+        if (cols.length > 0) {
+          csv += `${cols[1].innerText},${cols[2].innerText},${cols[3].innerText},${cols[4].innerText},${cols[5].innerText},${cols[6].innerText}\n`;
+        }
+      });
+      const blob = new Blob([csv], { type: "text/csv" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "rekap_absensi.csv";
+      a.click();
+    }
+
+    window.onload = tampilkanRekap;
+  </script>
+</body>
+</html>
