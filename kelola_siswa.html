@@ -62,6 +62,14 @@
 </head>
 <body>
 
+   <!-- 🔹 NAVBAR -->
+  <div id="navbar"></div>
+  <script>
+    fetch("navbar.html")
+      .then(res => res.text())
+      .then(html => document.getElementById("navbar").innerHTML = html);
+  </script>
+  
   <h1>📚 Kelola Data Siswa Litering</h1>
 
   <form id="formTambah">
@@ -170,4 +178,5 @@
     loadData();
   </script>
 </body>
+
 </html>
