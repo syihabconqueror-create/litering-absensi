@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LITERING — Dashboard & Absensi</title>
+  <title>LITERING — Absensi Otomatis per Hari</title>
 
-  <!-- STYLE -->
   <link rel="stylesheet" href="style.css" />
 
   <!-- Firebase & Chart.js -->
@@ -38,7 +37,7 @@
     .card {
       background: white;
       border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
       padding: 15px;
       text-align: center;
     }
@@ -57,48 +56,32 @@
       border-bottom: 1px solid #ddd;
       text-align: center;
     }
-    th {
-      background: #1e3a8a;
-      color: white;
-    }
+    th { background: #1e3a8a; color: white; }
     tr:hover { background-color: #f1f5f9; }
-    canvas {
-      background: white;
-      border-radius: 10px;
-      margin-top: 25px;
-      padding: 10px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
     button {
-      cursor: pointer;
+      padding: 10px 15px;
+      margin: 10px 5px;
       border: none;
       border-radius: 6px;
       background: #2563eb;
       color: white;
-      padding: 10px 16px;
-      margin: 5px;
+      cursor: pointer;
     }
-    button:hover { background: #1e40af; }
-    .form-card {
-      border: 1px solid #ccc;
-      border-radius: 10px;
-      padding: 20px;
+    #reader {
+      width: 300px;
       margin: 20px auto;
-      width: 90%;
-      max-width: 500px;
-      background: white;
-      text-align: center;
     }
-    input {
-      width: 90%;
-      max-width: 400px;
-      padding: 10px;
-      margin: 10px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
+    .form-card {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      text-align: center;
+      margin-top: 40px;
     }
   </style>
 </head>
+
 <body>
 
   <!-- 🔹 NAVBAR -->
@@ -110,36 +93,17 @@
   </script>
 
   <header>
-    <h1>LITERING — Absensi & Dashboard</h1>
+    <h1>LITERING — Absensi Otomatis per Hari</h1>
     <p>Les Komputer MTs Al Ishlah Panambangan</p>
   </header>
 
   <main>
-    <!-- 🧾 DASHBOARD -->
-    <section id="dashboard">
-      <div style="display: flex; justify-content: center; align-items: center; gap: 10px;">
-        <h3 id="rekapTitle">Rekap Kehadiran Hari Ini</h3>
-        <select id="filterRekap" onchange="updateRekap()">
-          <option value="hari">Hari Ini</option>
-          <option value="minggu">Minggu Ini</option>
-          <option value="bulan">Bulan Ini</option>
-          <option value="tahun">Tahun Ini</option>
-        </select>
-      </div>
+    <section>
+      <h2 id="judulKelas"></h2>
+      <button id="btnMulai">🚀 Mulai Absensi Hari Ini</button>
+      <button id="btnDownload">⬇️ Download Rekap (CSV)</button>
 
-      <div class="summary">
-        <div class="card"><h3>Hadir</h3><h2 id="hadirCount" class="hadir">0</h2></div>
-        <div class="card"><h3>Izin</h3><h2 id="izinCount" class="izin">0</h2></div>
-        <div class="card"><h3>Sakit</h3><h2 id="sakitCount" class="sakit">0</h2></div>
-        <div class="card"><h3>Alfa</h3><h2 id="alfaCount" class="alfa">0</h2></div>
-      </div>
-
-      <div style="text-align:center; margin-top:20px;">
-        <button onclick="mulaiAbsensiHariIni()">🟢 Mulai Absensi Hari Ini</button>
-        <button id="btnDownload">⬇️ Download Rekap (CSV)</button>
-      </div>
-
-      <table id="tabelRekap">
+      <table id="tabelSiswa">
         <thead>
           <tr>
             <th>No</th>
@@ -151,22 +115,17 @@
         </thead>
         <tbody></tbody>
       </table>
-
-      <canvas id="chartKehadiran" height="100"></canvas>
     </section>
 
-    <!-- 📱 ABSENSI MANUAL / QR -->
-    <section class="absensi-section">
-      <h2 style="text-align:center;">Form Absensi Manual / QR</h2>
-      <div class="form-card">
-        <div id="reader" style="width:300px; margin:20px auto;"></div>
-        <input type="text" id="idSiswa" placeholder="Masukkan ID Siswa (otomatis saat scan)">
-        <button onclick="kirimAbsensi()">Kirim Absensi</button>
-      </div>
-    </section>
+    <div class="form-card">
+      <h2>📷 Scan QR / Manual</h2>
+      <div id="reader"></div>
+      <input type="text" id="idSiswa" placeholder="ID Siswa (otomatis jika scan QR)">
+      <button onclick="kirimAbsensi()">Kirim Hadir</button>
+    </div>
   </main>
 
-  <!-- 🔥 FIREBASE SCRIPT -->
+  <!-- Firebase -->
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyDGVM5T-us2R19M-zLmVbMh-NUgjg3Af68",
@@ -180,152 +139,149 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    const ctx = document.getElementById("chartKehadiran").getContext("2d");
-    let chart;
+    const hariList = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
+    const hariIni = hariList[new Date().getDay()];
+    document.getElementById("judulKelas").innerText = `📅 Kelas Hari ${hariIni}`;
 
-    function renderChart(hadir, izin, sakit, alfa) {
-      if (chart) chart.destroy();
-      chart = new Chart(ctx, {
-        type: "doughnut",
-        data: {
-          labels: ["Hadir", "Izin", "Sakit", "Alfa"],
-          datasets: [{
-            data: [hadir, izin, sakit, alfa],
-            backgroundColor: ["#16a34a", "#eab308", "#2563eb", "#dc2626"]
-          }]
-        },
-        options: { plugins: { legend: { position: "bottom" } } }
-      });
-    }
-
-    function parseTanggal(tglString) {
-      const [d, m, y] = tglString.split("-");
-      return new Date(`${y}-${m}-${d}`);
+    async function loadSiswa() {
+      const snap = await db.ref("siswa").once("value");
+      const data = snap.val() || {};
+      const tbody = document.querySelector("#tabelSiswa tbody");
+      tbody.innerHTML = "";
+      let i = 1;
+      for (const id in data) {
+        const s = data[id];
+        if (s.kelas && s.kelas.toLowerCase().includes(hariIni.toLowerCase())) {
+          tbody.innerHTML += `
+            <tr id="row-${id}">
+              <td>${i++}</td>
+              <td>${s.nama}</td>
+              <td>${s.kelas}</td>
+              <td id="status-${id}">-</td>
+              <td id="waktu-${id}">-</td>
+            </tr>`;
+        }
+      }
     }
 
     async function mulaiAbsensiHariIni() {
       const now = new Date();
-      const todayStr = `${now.getDate().toString().padStart(2,"0")}-${(now.getMonth()+1).toString().padStart(2,"0")}-${now.getFullYear()}`;
-      const [siswaSnap, absensiSnap] = await Promise.all([
-        db.ref("siswa").once("value"),
-        db.ref("absensi").once("value")
-      ]);
+      const tglStr = `${now.getDate().toString().padStart(2,"0")}-${(now.getMonth()+1).toString().padStart(2,"0")}-${now.getFullYear()}`;
+
+      const siswaSnap = await db.ref("siswa").once("value");
       const siswaData = siswaSnap.val() || {};
+      for (const id in siswaData) {
+        const s = siswaData[id];
+        if (s.kelas && s.kelas.toLowerCase().includes(hariIni.toLowerCase())) {
+          const ref = db.ref("absensi").push();
+          ref.set({
+            id: id,
+            status: "Alfa",
+            tanggal: tglStr,
+            waktu: "-"
+          });
+        }
+      }
+      alert(`Absensi hari ${hariIni} dimulai! Semua siswa ditandai Alfa.`);
+      loadRekapHariIni();
+    }
+
+    async function loadRekapHariIni() {
+      const now = new Date();
+      const tglStr = `${now.getDate().toString().padStart(2,"0")}-${(now.getMonth()+1).toString().padStart(2,"0")}-${now.getFullYear()}`;
+      const [absensiSnap, siswaSnap] = await Promise.all([
+        db.ref("absensi").once("value"),
+        db.ref("siswa").once("value")
+      ]);
       const absensiData = absensiSnap.val() || {};
+      const siswaData = siswaSnap.val() || {};
+      for (const id in siswaData) {
+        const s = siswaData[id];
+        if (s.kelas && s.kelas.toLowerCase().includes(hariIni.toLowerCase())) {
+          let status = "-";
+          let waktu = "-";
+          for (const key in absensiData) {
+            const a = absensiData[key];
+            if (a.id === id && a.tanggal === tglStr) {
+              status = a.status;
+              waktu = a.waktu;
+            }
+          }
+          document.getElementById(`status-${id}`).innerText = status;
+          document.getElementById(`waktu-${id}`).innerText = waktu;
+        }
+      }
+    }
 
-      // Cek apakah sudah ada absensi hari ini
-      let sudahAda = false;
-      Object.values(absensiData).forEach(a => { if (a.tanggal === todayStr) sudahAda = true; });
-      if (sudahAda) return alert("✅ Absensi hari ini sudah dibuat.");
+    async function kirimAbsensi() {
+      const idSiswa = document.getElementById("idSiswa").value.trim();
+      if (!idSiswa) return alert("Masukkan atau scan ID siswa!");
+      const now = new Date();
+      const tglStr = `${now.getDate().toString().padStart(2,"0")}-${(now.getMonth()+1).toString().padStart(2,"0")}-${now.getFullYear()}`;
 
-      for (let id in siswaData) {
+      // cari absensi hari ini untuk id itu
+      const snap = await db.ref("absensi").once("value");
+      let foundKey = null;
+      snap.forEach(item => {
+        const val = item.val();
+        if (val.id === idSiswa && val.tanggal === tglStr) foundKey = item.key;
+      });
+
+      if (foundKey) {
+        await db.ref("absensi/" + foundKey).update({
+          status: "Hadir",
+          waktu: new Date().toLocaleString("id-ID")
+        });
+      } else {
         await db.ref("absensi").push({
-          id,
-          status: "Alfa",
-          tanggal: todayStr,
+          id: idSiswa,
+          status: "Hadir",
+          tanggal: tglStr,
           waktu: new Date().toLocaleString("id-ID")
         });
       }
-      alert("🟢 Semua siswa hari ini otomatis Alfa.");
-      loadRekap("hari");
+
+      alert("Absensi berhasil: Hadir ✅");
+      loadRekapHariIni();
+      document.getElementById("idSiswa").value = "";
     }
 
-    async function loadRekap(filter = "hari") {
-      const now = new Date();
-      const todayStr = `${now.getDate().toString().padStart(2,"0")}-${(now.getMonth()+1).toString().padStart(2,"0")}-${now.getFullYear()}`;
-      const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - now.getDay() + 1);
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const startOfYear = new Date(now.getFullYear(), 0, 1);
-
+    document.getElementById("btnMulai").addEventListener("click", mulaiAbsensiHariIni);
+    document.getElementById("btnDownload").addEventListener("click", async () => {
       const [absensiSnap, siswaSnap] = await Promise.all([
         db.ref("absensi").once("value"),
         db.ref("siswa").once("value")
       ]);
       const siswaData = siswaSnap.val() || {};
-      let hadir=0, izin=0, sakit=0, alfa=0, rekap=[];
-
-      absensiSnap.forEach(child=>{
-        const d=child.val(); if(!d.tanggal) return;
-        const t=parseTanggal(d.tanggal); let include=false;
-        if(filter==="hari") include=d.tanggal===todayStr;
-        else if(filter==="minggu") include=t>=startOfWeek;
-        else if(filter==="bulan") include=t>=startOfMonth;
-        else if(filter==="tahun") include=t>=startOfYear;
-        if(include){
-          const s=siswaData[d.id]||{};
-          rekap.push({nama:s.nama||d.id, kelas:s.kelas||"-", status:d.status, waktu:d.waktu});
-          if(d.status==="Hadir")hadir++; else if(d.status==="Izin")izin++; else if(d.status==="Sakit")sakit++; else alfa++;
-        }
+      let csv = "Nama,Kelas,Status,Waktu\n";
+      absensiSnap.forEach(item => {
+        const d = item.val();
+        const siswa = siswaData[d.id] || {};
+        csv += `${siswa.nama || "-"},${siswa.kelas || "-"},${d.status || "-"},${d.waktu || "-"}\n`;
       });
-
-      document.getElementById("hadirCount").innerText=hadir;
-      document.getElementById("izinCount").innerText=izin;
-      document.getElementById("sakitCount").innerText=sakit;
-      document.getElementById("alfaCount").innerText=alfa;
-      renderChart(hadir, izin, sakit, alfa);
-
-      const tbody=document.querySelector("#tabelRekap tbody");
-      tbody.innerHTML="";
-      rekap.forEach((r,i)=>{
-        tbody.innerHTML+=`<tr><td>${i+1}</td><td>${r.nama}</td><td>${r.kelas}</td><td>${r.status}</td><td>${r.waktu}</td></tr>`;
-      });
-    }
-
-    function updateRekap(){
-      const f=document.getElementById("filterRekap").value;
-      loadRekap(f);
-    }
-
-    async function tandaiHadir(idSiswa){
-      const now=new Date();
-      const todayStr=`${now.getDate().toString().padStart(2,"0")}-${(now.getMonth()+1).toString().padStart(2,"0")}-${now.getFullYear()}`;
-      const absSnap=await db.ref("absensi").once("value");
-      let key=null;
-      absSnap.forEach(c=>{const d=c.val(); if(d.id===idSiswa && d.tanggal===todayStr) key=c.key;});
-      if(key){
-        await db.ref("absensi/"+key).update({status:"Hadir", waktu:new Date().toLocaleString("id-ID")});
-        alert(`✅ ${idSiswa} tercatat hadir.`);
-      }else alert("⚠️ Absensi hari ini belum dibuat.");
-      loadRekap("hari");
-    }
-
-    function kirimAbsensi(){
-      const id=document.getElementById("idSiswa").value.trim();
-      if(!id) return alert("Masukkan ID atau scan QR!");
-      tandaiHadir(id);
-      document.getElementById("idSiswa").value="";
-    }
-
-    document.getElementById("btnDownload").addEventListener("click", async()=>{
-      const [absSnap,siswaSnap]=await Promise.all([
-        db.ref("absensi").once("value"), db.ref("siswa").once("value")
-      ]);
-      const siswaData=siswaSnap.val()||{};
-      let csv="Nama,Kelas,Status,Waktu\n";
-      absSnap.forEach(i=>{
-        const d=i.val(); const s=siswaData[d.id]||{};
-        csv+=`${s.nama||"-"},${s.kelas||"-"},${d.status||"-"},${d.waktu||"-"}\n`;
-      });
-      const blob=new Blob([csv],{type:"text/csv"});
-      const a=document.createElement("a");
-      a.href=URL.createObjectURL(blob);
-      a.download=`rekap_absensi_${new Date().toLocaleDateString("id-ID")}.csv`;
+      const blob = new Blob([csv], { type: "text/csv" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `rekap_${hariIni}.csv`;
       a.click();
     });
 
-    window.onload=()=>loadRekap("hari");
+    window.onload = async () => {
+      await loadSiswa();
+      await loadRekapHariIni();
+    };
   </script>
 
-  <!-- 📷 QR SCANNER -->
+  <!-- QR Scanner -->
   <script src="https://unpkg.com/html5-qrcode"></script>
   <script>
-    function onScanSuccess(decodedText){
-      document.getElementById("idSiswa").value=decodedText;
-      tandaiHadir(decodedText);
+    function onScanSuccess(decodedText) {
+      document.getElementById("idSiswa").value = decodedText;
+      kirimAbsensi();
     }
-    const html5QrCode=new Html5Qrcode("reader");
-    html5QrCode.start({facingMode:"environment"},{fps:10,qrbox:250},onScanSuccess)
-      .catch(err=>console.error("Kamera error:",err));
+    const html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, onScanSuccess)
+      .catch(err => console.error("Kamera error:", err));
   </script>
 
 </body>
