@@ -61,6 +61,15 @@
   </style>
 </head>
 <body>
+
+   <!-- 🔹 NAVBAR -->
+  <div id="navbar"></div>
+  <script>
+    fetch("navbar.html")
+      .then(res => res.text())
+      .then(html => document.getElementById("navbar").innerHTML = html);
+  </script>
+  
   <header>
     <h1>📊 Rekap Absensi Siswa</h1>
   </header>
