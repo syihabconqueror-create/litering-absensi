@@ -109,7 +109,14 @@
 </head>
 
 <body>
-
+ <!-- 🔹 NAVBAR -->
+  <div id="navbar"></div>
+  <script>
+    fetch("navbar.html")
+      .then(res => res.text())
+      .then(html => document.getElementById("navbar").innerHTML = html);
+  </script>
+  
   <h1>📋 Daftar Siswa Litering</h1>
   <button class="refresh" onclick="loadData()">🔄 Refresh Data</button>
   <table>
@@ -178,6 +185,7 @@
 
 </body>
 </html>
+
 
 
 
