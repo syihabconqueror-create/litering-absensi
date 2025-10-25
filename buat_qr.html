@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Buat Barcode Siswa - Litering</title>
+  <title>Buat QR Code Siswa - Litering</title>
 
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
-  <!-- JsBarcode -->
-  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+  <!-- QRCode.js -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
 
   <!-- JSZip + FileSaver -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -20,31 +20,31 @@
     body { font-family: 'Segoe UI', sans-serif; background:#f5f7fa; padding:20px; text-align:center; }
     .card { background:white; padding:16px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.08); max-width:460px; margin:18px auto; }
     select,input,button { padding:8px 10px; margin:6px; font-size:15px; }
-    canvas { display:block; margin:14px auto; background:white; }
+    #qrcode { margin:20px auto; }
     #info { margin-top:10px; color:#333; font-size:14px; }
     .small { font-size:13px; color:#555; }
   </style>
 </head>
 <body>
-  <h1>🏷️ Buat Barcode Siswa (Code 39)</h1>
-  <p class="small">Pilih siswa lalu klik "Buat Barcode". Download semua akan mengemas semua barcode ke file ZIP.</p>
+  <h1>📱 Buat QR Code Siswa</h1>
+  <p class="small">Pilih siswa lalu klik "Buat QR Code". Download semua akan mengemas semua QR ke file ZIP.</p>
 
   <div class="card">
     <select id="siswaSelect">
       <option value="">-- Pilih Siswa --</option>
     </select>
     <br>
-    <button id="btnGenerate" onclick="generateBarcode()">Buat Barcode</button>
-    <button id="downloadBtn" style="display:none" onclick="downloadBarcode()">Download Barcode</button>
-    <button id="btnAll" onclick="generateAllBarcodes()">Download Semua Barcode (ZIP)</button>
+    <button id="btnGenerate" onclick="generateQR()">Buat QR Code</button>
+    <button id="downloadBtn" style="display:none" onclick="downloadQR()">Download QR</button>
+    <button id="btnAll" onclick="generateAllQR()">Download Semua QR (ZIP)</button>
 
-    <!-- canvas untuk menampilkan barcode -->
-    <canvas id="barcodeCanvas"></canvas>
+    <!-- tempat tampilkan QR -->
+    <div id="qrcode"></div>
     <p id="info"></p>
   </div>
 
 <script>
-  // config firebase (sama seperti sebelum)
+  // 🔥 Konfigurasi Firebase
   const firebaseConfig = {
     apiKey: "AIzaSyDGVM5T-us2R19M-zLmVbMh-NUgjg3Af68",
     authDomain: "litering-absensi.firebaseapp.com",
@@ -59,13 +59,14 @@
   const db = firebase.database();
 
   const siswaSelect = document.getElementById('siswaSelect');
-  const barcodeCanvas = document.getElementById('barcodeCanvas');
+  const qrcodeContainer = document.getElementById('qrcode');
   const downloadBtn = document.getElementById('downloadBtn');
   const info = document.getElementById('info');
   const btnAll = document.getElementById('btnAll');
   let siswaList = [];
+  let currentQR = null;
 
-  // ambil data siswa
+  // ambil data siswa dari Firebase
   db.ref('siswa').once('value').then(snapshot => {
     snapshot.forEach(child => {
       const s = child.val();
@@ -76,125 +77,74 @@
       opt.value = `${id}|${nama}|${kelas}`;
       opt.textContent = `${nama} (${kelas})`;
       siswaSelect.appendChild(opt);
-      siswaList.push({ id: id, nama: nama, kelas: kelas });
+      siswaList.push({ id, nama, kelas });
     });
   }).catch(err => {
     console.error('Gagal ambil siswa:', err);
-    info.innerText = 'Gagal mengambil data siswa (lihat console).';
+    info.innerText = 'Gagal mengambil data siswa.';
   });
 
   function sanitizeFilename(name) {
     return (name || 'siswa').replace(/[^a-z0-9_\-\.]/gi, '_');
   }
 
-  // generate barcode ke canvas (Code39)
-  function generateBarcode() {
+  // generate QR untuk siswa terpilih
+  function generateQR() {
     const val = siswaSelect.value;
     if (!val) return alert('Pilih siswa dulu!');
     const [id, nama, kelas] = val.split('|');
-    if (!id || id.length !== 12) {
-      return alert('ID harus 12 digit untuk barcode Code 39.');
-    }
 
-    // set ukuran canvas agar toDataURL menghasilkan ukuran cukup
-    // JsBarcode bisa langsung menggambar ke canvas element
-    JsBarcode(barcodeCanvas, id, {
-      format: 'CODE39',
-      lineColor: '#000',
-      width: 2,
-      height: 80,
-      displayValue: true,
-      fontSize: 16,
-      margin: 10
+    qrcodeContainer.innerHTML = ''; // bersihkan sebelumnya
+    currentQR = new QRCode(qrcodeContainer, {
+      text: id,
+      width: 200,
+      height: 200
     });
-
-    info.innerText = `Barcode untuk ${nama} (${kelas}) — ID: ${id}`;
+    info.innerText = `QR Code untuk ${nama} (${kelas}) — ID: ${id}`;
     downloadBtn.style.display = 'inline-block';
   }
 
-  // download currently displayed barcode
-  function downloadBarcode() {
-    try {
-      const val = siswaSelect.value;
-      if (!val) return alert('Tidak ada barcode untuk didownload.');
-      const [id, nama] = val.split('|');
-      const dataUrl = barcodeCanvas.toDataURL('image/png');
-      // create link and click
-      const a = document.createElement('a');
-      a.href = dataUrl;
-      a.download = `Barcode_${sanitizeFilename(nama)}_${id}.png`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    } catch (e) {
-      console.error('downloadBarcode error', e);
-      alert('Gagal mendownload barcode (lihat console).');
-    }
+  // download QR yang tampil
+  function downloadQR() {
+    const canvas = qrcodeContainer.querySelector('canvas');
+    if (!canvas) return alert('QR belum dibuat.');
+    const val = siswaSelect.value;
+    const [id, nama] = val.split('|');
+    const dataUrl = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `QR_${sanitizeFilename(nama)}_${id}.png`;
+    a.click();
   }
 
-  // generate all barcodes and zip
-  async function generateAllBarcodes() {
-    if (!siswaList || siswaList.length === 0) return alert('Data siswa belum dimuat.');
-    if (!window.JSZip) return alert('JSZip belum dimuat. Pastikan koneksi internet stabil.');
-
-    const zip = new JSZip();
+  // generate semua QR dan zip
+  async function generateAllQR() {
+    if (!siswaList.length) return alert('Data siswa belum dimuat.');
     btnAll.disabled = true;
-    const total = siswaList.length;
+    const zip = new JSZip();
     let processed = 0;
-    info.innerText = `Memproses ${processed}/${total}...`;
+    info.innerText = `Memproses ${processed}/${siswaList.length}...`;
 
     for (const s of siswaList) {
       try {
-        if (!s.id || s.id.length !== 12) {
-          processed++;
-          info.innerText = `Lewatkan ${processed}/${total} (ID tidak 12 digit)`;
-          continue;
-        }
-        // buat canvas sementara
-        const c = document.createElement('canvas');
-        // JsBarcode sync menggambar ke canvas
-        JsBarcode(c, s.id, {
-          format: 'CODE39',
-          lineColor: '#000',
-          width: 2,
-          height: 80,
-          displayValue: true,
-          fontSize: 16,
-          margin: 10
-        });
-
-        // toDataURL sync
-        const dataUrl = c.toDataURL('image/png');
+        const tempDiv = document.createElement('div');
+        const qr = new QRCode(tempDiv, { text: s.id, width: 200, height: 200 });
+        await new Promise(r => setTimeout(r, 300)); // tunggu render QR
+        const canvas = tempDiv.querySelector('canvas');
+        const dataUrl = canvas.toDataURL('image/png');
         const base64 = dataUrl.split(',')[1];
-        const filename = `${sanitizeFilename(s.nama)}_${s.id}.png`;
-        zip.file(filename, base64, { base64: true });
-
+        zip.file(`${sanitizeFilename(s.nama)}_${s.id}.png`, base64, { base64: true });
         processed++;
-        info.innerText = `Memproses ${processed}/${total}...`;
-        // small pause to keep UI responsive (optional)
-        await new Promise(r => setTimeout(r, 50));
+        info.innerText = `Memproses ${processed}/${siswaList.length}...`;
       } catch (err) {
-        console.error('Error generate for', s, err);
-        processed++;
+        console.error('Gagal buat QR:', err);
       }
     }
 
-    info.innerText = 'Mengemas ZIP...';
-    try {
-      const content = await zip.generateAsync({ type: 'blob' }, metadata => {
-        // optional: bisa update progress metadata.percent
-        // info.innerText = `Menyusun ZIP ${Math.round(metadata.percent)}%`;
-      });
-      saveAs(content, 'Barcode_Siswa.zip');
-      info.innerText = `Selesai! Download dimulai.`;
-    } catch (err) {
-      console.error('ZIP error', err);
-      alert('Gagal membuat ZIP (lihat console).');
-      info.innerText = 'Gagal membuat ZIP.';
-    } finally {
-      btnAll.disabled = false;
-      setTimeout(()=> { info.innerText = ''; }, 3000);
-    }
+    const content = await zip.generateAsync({ type: 'blob' });
+    saveAs(content, 'QR_Siswa.zip');
+    info.innerText = 'Selesai! QR Code berhasil diunduh.';
+    btnAll.disabled = false;
   }
 </script>
 </body>
