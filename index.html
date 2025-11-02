@@ -284,13 +284,15 @@
 <!-- QR Scanner -->
 <script src="https://unpkg.com/html5-qrcode"></script>
 <script>
+  let html5QrCode = null;
+  let currentCameraId = null;
+
   function onScanSuccess(decodedText) {
-    // Jika hasil scan berupa URL dengan parameter ?id=
     const match = decodedText.match(/id=([\w-]+)/);
     const idOnly = match ? match[1] : decodedText;
 
-    console.log("Hasil scan:", decodedText);
-    console.log("ID yang dipakai:", idOnly);
+    console.log("📷 Hasil scan:", decodedText);
+    console.log("🆔 ID digunakan:", idOnly);
 
     document.getElementById("idSiswa").value = idOnly;
     kirimAbsensi();
@@ -299,69 +301,71 @@
   async function startScanner(cameraId) {
     try {
       const readerEl = document.getElementById("reader");
-      if (!readerEl) {
-        console.error("Elemen #reader tidak ditemukan di halaman!");
-        return;
-      }
+      if (!readerEl) return alert("Elemen #reader tidak ditemukan!");
 
+      // Hentikan scanner sebelumnya
       if (html5QrCode) {
-        await html5QrCode.stop();
-        await html5QrCode.clear();
+        try {
+          await html5QrCode.stop();
+          await html5QrCode.clear();
+        } catch (err) {
+          console.warn("Gagal menghentikan kamera sebelumnya:", err);
+        }
       }
 
       html5QrCode = new Html5Qrcode("reader");
       const config = { fps: 10, qrbox: { width: 250, height: 250 } };
       await html5QrCode.start(cameraId, config, onScanSuccess);
-      console.log("✅ Scanner siap digunakan:", cameraId);
+      currentCameraId = cameraId;
+
+      console.log("✅ Scanner aktif pada kamera:", cameraId);
     } catch (err) {
-      console.error("Kamera error:", err);
+      console.error("❌ Kamera error:", err);
       alert("Gagal membuka kamera. Pastikan izin kamera diaktifkan.");
     }
   }
 
   async function initScanner() {
     try {
-      const readerEl = document.getElementById("reader");
-      if (!readerEl) {
-        console.error("Elemen #reader tidak ditemukan!");
-        return;
-      }
-
       const devices = await Html5Qrcode.getCameras();
       if (!devices || devices.length === 0) {
         alert("Tidak ada kamera yang terdeteksi!");
         return;
       }
 
-      // Buat dropdown pilih kamera
       const select = document.createElement("select");
       select.id = "cameraSelect";
-      select.style.marginBottom = "10px";
+      select.style.display = "block";
+      select.style.margin = "10px auto";
       select.style.padding = "6px";
+      select.style.fontSize = "14px";
 
-      devices.forEach((device, i) => {
+      devices.forEach((device, index) => {
         const opt = document.createElement("option");
         opt.value = device.id;
-        opt.textContent = device.label || `Kamera ${i + 1}`;
+        opt.textContent = device.label || `Kamera ${index + 1}`;
         select.appendChild(opt);
       });
 
-      readerEl.parentNode.insertBefore(select, readerEl);
+      const readerContainer = document.getElementById("reader").parentNode;
+      readerContainer.insertBefore(select, document.getElementById("reader"));
 
-      // Gunakan kamera belakang jika tersedia
+      // Pilih default: kamera belakang jika ada
       const backCam = devices.find(d => /back|rear/i.test(d.label));
-      const defaultCam = backCam ? backCam.id : devices[0].id;
-      select.value = defaultCam;
+      const defaultCamId = backCam ? backCam.id : devices[0].id;
+      select.value = defaultCamId;
 
-      await startScanner(defaultCam);
+      // Jalankan scanner
+      await startScanner(defaultCamId);
 
-      // Ganti kamera jika user memilih di dropdown
-      select.addEventListener("change", (e) => {
-        startScanner(e.target.value);
+      // Ganti kamera saat dropdown berubah
+      select.addEventListener("change", async (e) => {
+        await startScanner(e.target.value);
       });
+
     } catch (err) {
-      console.error("Gagal memuat kamera:", err);
-      alert("Tidak dapat mengakses kamera. Pastikan izin sudah diberikan.");
+      console.error("❌ Gagal inisialisasi kamera:", err);
+      alert("Tidak bisa mengakses kamera. Pastikan izin sudah diberikan.");
     }
   }
 
@@ -372,6 +376,7 @@
 
 </body>
 </html>
+
 
 
 
