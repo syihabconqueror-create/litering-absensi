@@ -281,29 +281,6 @@
     };
   </script>
 
-
-
-      const select = document.createElement("select");
-      select.id = "cameraSelect";
-      select.style.display = "block";
-      select.style.margin = "10px auto";
-      select.style.padding = "6px";
-      select.style.fontSize = "14px";
-
-      devices.forEach((device, index) => {
-        const opt = document.createElement("option");
-        opt.value = device.id;
-        opt.textContent = device.label || `Kamera ${index + 1}`;
-        select.appendChild(opt);
-      });
-
-      const readerContainer = document.getElementById("reader").parentNode;
-      readerContainer.insertBefore(select, document.getElementById("reader"));
-
-      // Pilih default: kamera belakang jika ada
-      const backCam = devices.find(d => /back|rear/i.test(d.label));
-      const defaultCamId = backCam ? backCam.id : devices[0].id;
-      select.value = defaultCamId;
 <!-- QR Scanner -->
 <script src="https://unpkg.com/html5-qrcode"></script>
 <script>
@@ -349,12 +326,9 @@
 </script>
 
 
+
 </body>
 </html>
-
-
-
-
 
 
 
