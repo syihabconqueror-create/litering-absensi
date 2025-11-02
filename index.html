@@ -284,60 +284,11 @@
 <!-- QR Scanner -->
 <script src="https://unpkg.com/html5-qrcode"></script>
 <script>
-  function onScanSuccess(decodedText) {
-    // Jika hasil scan berupa URL dengan parameter ?id=
-    const match = decodedText.match(/id=([\w-]+)/);
-    const idOnly = match ? match[1] : decodedText;
-
-    console.log("Hasil scan:", decodedText);
-    console.log("ID yang dipakai:", idOnly);
-
-    document.getElementById("idSiswa").value = idOnly;
-    kirimAbsensi();
-  }
-
-  async function startScanner() {
-    try {
-      const readerEl = document.getElementById("reader");
-      if (!readerEl) {
-        console.error("Elemen #reader tidak ditemukan di halaman!");
-        return;
-      }
-
-      const html5QrCode = new Html5Qrcode("reader");
-      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-
-      const devices = await Html5Qrcode.getCameras();
-      if (devices && devices.length > 0) {
-        const cameraId = devices[0].id;
-        await html5QrCode.start(cameraId, config, onScanSuccess);
-        console.log("✅ Scanner siap digunakan");
-      } else {
-        alert("Tidak ada kamera yang terdeteksi!");
-      }
-    } catch (err) {
-      console.error("Kamera error:", err);
-      alert("Gagal membuka kamera. Pastikan izin kamera diaktifkan.");
-    }
-  }
-
-  // Jalankan scanner setelah semua elemen halaman selesai dimuat
-  window.addEventListener("load", startScanner);
-
-<!-- Tempat tampil kamera -->
-<div class="text-center">
-  <select id="cameraSelect" class="border p-2 rounded mb-2"></select>
-  <div id="reader" style="width: 300px; margin: auto;"></div>
-</div>
-
-<script src="https://unpkg.com/html5-qrcode"></script>
-<script>
   let html5QrCode;
 
   async function onScanSuccess(decodedText) {
     const match = decodedText.match(/id=([\w-]+)/);
     const idOnly = match ? match[1] : decodedText;
-
     console.log("Hasil scan:", decodedText);
     document.getElementById("idSiswa").value = idOnly;
     kirimAbsensi();
@@ -349,6 +300,7 @@
         await html5QrCode.stop();
         await html5QrCode.clear();
       }
+
       html5QrCode = new Html5Qrcode("reader");
       const config = { fps: 10, qrbox: { width: 250, height: 250 } };
       await html5QrCode.start(cameraId, config, onScanSuccess);
@@ -373,14 +325,14 @@
           cameraSelect.appendChild(option);
         });
 
-        // Gunakan kamera belakang kalau tersedia
+        // Gunakan kamera belakang kalau ada
         const backCamera = devices.find(d => /back|rear/i.test(d.label));
         const defaultCameraId = backCamera ? backCamera.id : devices[0].id;
 
         cameraSelect.value = defaultCameraId;
         startScanner(defaultCameraId);
 
-        // Ganti kamera saat user memilih
+        // Ganti kamera saat user pilih di dropdown
         cameraSelect.addEventListener("change", e => {
           startScanner(e.target.value);
         });
@@ -397,8 +349,10 @@
 </script>
 
 
+
 </body>
 </html>
+
 
 
 
