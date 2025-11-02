@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Absen Otomatis</title>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
+  <script src="firebase.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen bg-gray-100">
+  <h1 class="text-2xl font-bold mb-4">📋 Absensi Otomatis</h1>
+  <div id="status" class="text-center text-lg"></div>
+
+  <script>
+    // Ambil ID dari URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const siswaId = urlParams.get("id");
+
+    if (!siswaId) {
+      document.getElementById("status").innerHTML = "❌ Tidak ditemukan ID siswa.";
+    } else {
+      const db = firebase.database();
+      const today = new Date().toISOString().split("T")[0];
+
+      // Simpan data absensi otomatis
+      db.ref("absensi/" + siswaId + "/" + today).set({
+        status: "Hadir",
+        waktu: new Date().toLocaleTimeString()
+      })
+      .then(() => {
+        document.getElementById("status").innerHTML = `
+          ✅ Absensi berhasil untuk <b>${siswaId}</b><br>
+          Waktu: ${new Date().toLocaleTimeString()}
+        `;
+      })
+      .catch(err => {
+        document.getElementById("status").innerHTML = "⚠️ Gagal menyimpan absensi: " + err;
+      });
+    }
+  </script>
+</body>
+</html>
