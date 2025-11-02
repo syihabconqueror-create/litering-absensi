@@ -284,6 +284,8 @@
 <!-- QR Scanner -->
 <script src="https://unpkg.com/html5-qrcode"></script>
 <script>
+  let html5QrCode;
+
   function onScanSuccess(decodedText) {
     // Jika hasil scan berupa URL dengan parameter ?id=
     const match = decodedText.match(/id=([\w-]+)/);
@@ -296,7 +298,7 @@
     kirimAbsensi();
   }
 
-  async function startScanner() {
+  async function startScanner(cameraId) {
     try {
       const readerEl = document.getElementById("reader");
       if (!readerEl) {
@@ -304,31 +306,75 @@
         return;
       }
 
-      const html5QrCode = new Html5Qrcode("reader");
-      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-
-      const devices = await Html5Qrcode.getCameras();
-      if (devices && devices.length > 0) {
-        const cameraId = devices[0].id;
-        await html5QrCode.start(cameraId, config, onScanSuccess);
-        console.log("✅ Scanner siap digunakan");
-      } else {
-        alert("Tidak ada kamera yang terdeteksi!");
+      if (html5QrCode) {
+        await html5QrCode.stop();
+        await html5QrCode.clear();
       }
+
+      html5QrCode = new Html5Qrcode("reader");
+      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+      await html5QrCode.start(cameraId, config, onScanSuccess);
+      console.log("✅ Scanner siap digunakan:", cameraId);
     } catch (err) {
       console.error("Kamera error:", err);
       alert("Gagal membuka kamera. Pastikan izin kamera diaktifkan.");
     }
   }
 
-  // Jalankan scanner setelah semua elemen halaman selesai dimuat
-  window.addEventListener("load", startScanner);
+  async function initScanner() {
+    try {
+      const readerEl = document.getElementById("reader");
+      if (!readerEl) {
+        console.error("Elemen #reader tidak ditemukan!");
+        return;
+      }
+
+      const devices = await Html5Qrcode.getCameras();
+      if (!devices || devices.length === 0) {
+        alert("Tidak ada kamera yang terdeteksi!");
+        return;
+      }
+
+      // Buat dropdown pilih kamera
+      const select = document.createElement("select");
+      select.id = "cameraSelect";
+      select.style.marginBottom = "10px";
+      select.style.padding = "6px";
+
+      devices.forEach((device, i) => {
+        const opt = document.createElement("option");
+        opt.value = device.id;
+        opt.textContent = device.label || `Kamera ${i + 1}`;
+        select.appendChild(opt);
+      });
+
+      readerEl.parentNode.insertBefore(select, readerEl);
+
+      // Gunakan kamera belakang jika tersedia
+      const backCam = devices.find(d => /back|rear/i.test(d.label));
+      const defaultCam = backCam ? backCam.id : devices[0].id;
+      select.value = defaultCam;
+
+      await startScanner(defaultCam);
+
+      // Ganti kamera jika user memilih di dropdown
+      select.addEventListener("change", (e) => {
+        startScanner(e.target.value);
+      });
+    } catch (err) {
+      console.error("Gagal memuat kamera:", err);
+      alert("Tidak dapat mengakses kamera. Pastikan izin sudah diberikan.");
+    }
+  }
+
+  window.addEventListener("load", initScanner);
 </script>
 
 
 
 </body>
 </html>
+
 
 
 
