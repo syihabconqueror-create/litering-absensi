@@ -1,151 +1,57 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Buat QR Code Siswa - Litering</title>
-
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-
-  <!-- QRCode.js -->
-  <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
-
-  <!-- JSZip + FileSaver -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-
-  <style>
-    body { font-family: 'Segoe UI', sans-serif; background:#f5f7fa; padding:20px; text-align:center; }
-    .card { background:white; padding:16px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.08); max-width:460px; margin:18px auto; }
-    select,input,button { padding:8px 10px; margin:6px; font-size:15px; }
-    #qrcode { margin:20px auto; }
-    #info { margin-top:10px; color:#333; font-size:14px; }
-    .small { font-size:13px; color:#555; }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buat Barcode & QR</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+  <link rel="stylesheet" href="style.css">
 </head>
-<body>
-  <h1>📱 Buat QR Code Siswa</h1>
-  <p class="small">Pilih siswa lalu klik "Buat QR Code". Download semua akan mengemas semua QR ke file ZIP.</p>
+<body class="p-6 bg-gray-100 min-h-screen">
+  <h1 class="text-2xl font-bold mb-4">🎯 Generator Barcode & QR Absensi</h1>
 
-  <div class="card">
-    <select id="siswaSelect">
-      <option value="">-- Pilih Siswa --</option>
-    </select>
-    <br>
-    <button id="btnGenerate" onclick="generateQR()">Buat QR Code</button>
-    <button id="downloadBtn" style="display:none" onclick="downloadQR()">Download QR</button>
-    <button id="btnAll" onclick="generateAllQR()">Download Semua QR (ZIP)</button>
+  <input id="siswaId" type="text" placeholder="Masukkan ID atau Nama Siswa" class="p-2 border rounded w-full mb-4">
+  <button id="buat" class="bg-blue-600 text-white px-4 py-2 rounded">Buat Kode</button>
 
-    <!-- tempat tampilkan QR -->
-    <div id="qrcode"></div>
-    <p id="info"></p>
-  </div>
+  <div id="output" class="mt-6 text-center"></div>
 
-<script>
-  // 🔥 Konfigurasi Firebase
-  const firebaseConfig = {
-    apiKey: "AIzaSyDGVM5T-us2R19M-zLmVbMh-NUgjg3Af68",
-    authDomain: "litering-absensi.firebaseapp.com",
-    databaseURL: "https://litering-absensi-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "litering-absensi",
-    storageBucket: "litering-absensi.firebasestorage.app",
-    messagingSenderId: "529191002867",
-    appId: "1:529191002867:web:d751dddb59e230f08acd86",
-    measurementId: "G-VGRF516G18"
-  };
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
-
-  const siswaSelect = document.getElementById('siswaSelect');
-  const qrcodeContainer = document.getElementById('qrcode');
-  const downloadBtn = document.getElementById('downloadBtn');
-  const info = document.getElementById('info');
-  const btnAll = document.getElementById('btnAll');
-  let siswaList = [];
-  let currentQR = null;
-
-  // ambil data siswa dari Firebase
-  db.ref('siswa').once('value').then(snapshot => {
-    snapshot.forEach(child => {
-      const s = child.val();
-      const id = s.id || child.key || '';
-      const nama = s.nama || 'TanpaNama';
-      const kelas = s.kelas || '-';
-      const opt = document.createElement('option');
-      opt.value = `${id}|${nama}|${kelas}`;
-      opt.textContent = `${nama} (${kelas})`;
-      siswaSelect.appendChild(opt);
-      siswaList.push({ id, nama, kelas });
-    });
-  }).catch(err => {
-    console.error('Gagal ambil siswa:', err);
-    info.innerText = 'Gagal mengambil data siswa.';
-  });
-
-  function sanitizeFilename(name) {
-    return (name || 'siswa').replace(/[^a-z0-9_\-\.]/gi, '_');
-  }
-
-  // generate QR untuk siswa terpilih
-  function generateQR() {
-    const val = siswaSelect.value;
-    if (!val) return alert('Pilih siswa dulu!');
-    const [id, nama, kelas] = val.split('|');
-
-    qrcodeContainer.innerHTML = ''; // bersihkan sebelumnya
-    currentQR = new QRCode(qrcodeContainer, {
-      text: id,
-      width: 200,
-      height: 200
-    });
-    info.innerText = `QR Code untuk ${nama} (${kelas}) — ID: ${id}`;
-    downloadBtn.style.display = 'inline-block';
-  }
-
-  // download QR yang tampil
-  function downloadQR() {
-    const canvas = qrcodeContainer.querySelector('canvas');
-    if (!canvas) return alert('QR belum dibuat.');
-    const val = siswaSelect.value;
-    const [id, nama] = val.split('|');
-    const dataUrl = canvas.toDataURL('image/png');
-    const a = document.createElement('a');
-    a.href = dataUrl;
-    a.download = `QR_${sanitizeFilename(nama)}_${id}.png`;
-    a.click();
-  }
-
-  // generate semua QR dan zip
-  async function generateAllQR() {
-    if (!siswaList.length) return alert('Data siswa belum dimuat.');
-    btnAll.disabled = true;
-    const zip = new JSZip();
-    let processed = 0;
-    info.innerText = `Memproses ${processed}/${siswaList.length}...`;
-
-    for (const s of siswaList) {
-      try {
-        const tempDiv = document.createElement('div');
-        const qr = new QRCode(tempDiv, { text: s.id, width: 200, height: 200 });
-        await new Promise(r => setTimeout(r, 300)); // tunggu render QR
-        const canvas = tempDiv.querySelector('canvas');
-        const dataUrl = canvas.toDataURL('image/png');
-        const base64 = dataUrl.split(',')[1];
-        zip.file(`${sanitizeFilename(s.nama)}_${s.id}.png`, base64, { base64: true });
-        processed++;
-        info.innerText = `Memproses ${processed}/${siswaList.length}...`;
-      } catch (err) {
-        console.error('Gagal buat QR:', err);
+  <script>
+    document.getElementById("buat").addEventListener("click", () => {
+      const id = document.getElementById("siswaId").value.trim();
+      if (!id) {
+        alert("Masukkan ID atau nama siswa dulu!");
+        return;
       }
-    }
 
-    const content = await zip.generateAsync({ type: 'blob' });
-    saveAs(content, 'QR_Siswa.zip');
-    info.innerText = 'Selesai! QR Code berhasil diunduh.';
-    btnAll.disabled = false;
-  }
-</script>
+      const linkAbsen = `https://syihabconqueror-create.github.io/litering-absensi/absen.html?id=${encodeURIComponent(id)}`;
+      document.getElementById("output").innerHTML = `
+        <p class="mb-2">Link absensi otomatis:</p>
+        <a href="${linkAbsen}" target="_blank" class="text-blue-600 underline">${linkAbsen}</a>
+        <div class="flex flex-col items-center mt-4">
+          <h2 class="font-semibold">📱 QR Code</h2>
+          <div id="qrcode"></div>
+          <h2 class="font-semibold mt-4">🏷️ Barcode</h2>
+          <svg id="barcode"></svg>
+        </div>
+      `;
+
+      // QR code
+      new QRCode(document.getElementById("qrcode"), {
+        text: linkAbsen,
+        width: 200,
+        height: 200
+      });
+
+      // Barcode
+      JsBarcode("#barcode", linkAbsen, {
+        format: "CODE128",
+        lineColor: "#000",
+        width: 2,
+        height: 60,
+        displayValue: false
+      });
+    });
+  </script>
 </body>
 </html>
