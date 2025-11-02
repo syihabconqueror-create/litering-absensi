@@ -323,12 +323,83 @@
 
   // Jalankan scanner setelah semua elemen halaman selesai dimuat
   window.addEventListener("load", startScanner);
-</script>
 
+<!-- Tempat tampil kamera -->
+<div class="text-center">
+  <select id="cameraSelect" class="border p-2 rounded mb-2"></select>
+  <div id="reader" style="width: 300px; margin: auto;"></div>
+</div>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script>
+  let html5QrCode;
+
+  async function onScanSuccess(decodedText) {
+    const match = decodedText.match(/id=([\w-]+)/);
+    const idOnly = match ? match[1] : decodedText;
+
+    console.log("Hasil scan:", decodedText);
+    document.getElementById("idSiswa").value = idOnly;
+    kirimAbsensi();
+  }
+
+  async function startScanner(cameraId) {
+    try {
+      if (html5QrCode) {
+        await html5QrCode.stop();
+        await html5QrCode.clear();
+      }
+      html5QrCode = new Html5Qrcode("reader");
+      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+      await html5QrCode.start(cameraId, config, onScanSuccess);
+      console.log("✅ Scanner aktif:", cameraId);
+    } catch (err) {
+      console.error("Kamera error:", err);
+      alert("Gagal membuka kamera. Pastikan izin kamera diaktifkan.");
+    }
+  }
+
+  async function loadCameras() {
+    try {
+      const devices = await Html5Qrcode.getCameras();
+      const cameraSelect = document.getElementById("cameraSelect");
+      cameraSelect.innerHTML = "";
+
+      if (devices && devices.length) {
+        devices.forEach((device, index) => {
+          const option = document.createElement("option");
+          option.value = device.id;
+          option.text = device.label || `Kamera ${index + 1}`;
+          cameraSelect.appendChild(option);
+        });
+
+        // Gunakan kamera belakang kalau tersedia
+        const backCamera = devices.find(d => /back|rear/i.test(d.label));
+        const defaultCameraId = backCamera ? backCamera.id : devices[0].id;
+
+        cameraSelect.value = defaultCameraId;
+        startScanner(defaultCameraId);
+
+        // Ganti kamera saat user memilih
+        cameraSelect.addEventListener("change", e => {
+          startScanner(e.target.value);
+        });
+      } else {
+        alert("Tidak ada kamera yang terdeteksi!");
+      }
+    } catch (err) {
+      console.error("Gagal memuat daftar kamera:", err);
+      alert("Tidak dapat mendeteksi kamera!");
+    }
+  }
+
+  window.addEventListener("load", loadCameras);
+</script>
 
 
 </body>
 </html>
+
 
 
 
