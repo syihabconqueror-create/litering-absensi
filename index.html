@@ -284,10 +284,15 @@
   <!-- QR Scanner -->
   <script src="https://unpkg.com/html5-qrcode"></script>
   <script>
-    function onScanSuccess(decodedText) {
-      document.getElementById("idSiswa").value = decodedText;
-      kirimAbsensi();
-    }
+   function onScanSuccess(decodedText) {
+  // ambil hanya angka setelah ?id=
+  const match = decodedText.match(/id=(\d+)/);
+  const idOnly = match ? match[1] : decodedText;
+
+  document.getElementById("idSiswa").value = idOnly;
+  kirimAbsensi();
+}
+
 
     const html5QrCode = new Html5Qrcode("reader");
     const config = { fps: 10, qrbox: { width: 250, height: 250 } };
@@ -313,3 +318,4 @@
 
 </body>
 </html>
+
