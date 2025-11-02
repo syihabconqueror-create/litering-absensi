@@ -284,8 +284,6 @@
 <!-- QR Scanner -->
 <script src="https://unpkg.com/html5-qrcode"></script>
 <script>
-  let html5QrCode;
-
   function onScanSuccess(decodedText) {
     // Jika hasil scan berupa URL dengan parameter ?id=
     const match = decodedText.match(/id=([\w-]+)/);
@@ -374,6 +372,7 @@
 
 </body>
 </html>
+
 
 
 
