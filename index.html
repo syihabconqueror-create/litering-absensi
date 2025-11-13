@@ -284,17 +284,30 @@
 <!-- QR Scanner -->
 <script src="https://unpkg.com/html5-qrcode"></script>
 <script>
-  function onScanSuccess(decodedText) {
-    // Jika hasil scan berupa URL dengan parameter ?id=
-    const match = decodedText.match(/id=([\w-]+)/);
-    const idOnly = match ? match[1] : decodedText;
+function onScanSuccess(decodedText) {
+  let idOnly = decodedText.trim();
 
-    console.log("Hasil scan:", decodedText);
-    console.log("ID yang dipakai:", idOnly);
-
-    document.getElementById("idSiswa").value = idOnly;
-    kirimAbsensi();
+  // Jika hasil scan berupa URL lengkap, misalnya:
+  // https://get-qr.com/p8jxKf atau https://mysite.com?id=p8jxKf
+  if (idOnly.includes("http")) {
+    // 1️⃣ Kalau formatnya ?id=xxxx
+    const queryMatch = idOnly.match(/id=([\w-]+)/);
+    if (queryMatch) {
+      idOnly = queryMatch[1];
+    } else {
+      // 2️⃣ Kalau formatnya https://domain.com/xxxx → ambil bagian terakhir
+      const parts = idOnly.split("/");
+      idOnly = parts[parts.length - 1];
+    }
   }
+
+  console.log("📷 Hasil scan mentah:", decodedText);
+  console.log("✅ ID siswa yang digunakan:", idOnly);
+
+  document.getElementById("idSiswa").value = idOnly;
+  kirimAbsensi();
+}
+
 
   async function startScanner() {
     try {
@@ -329,6 +342,7 @@
 
 </body>
 </html>
+
 
 
 
